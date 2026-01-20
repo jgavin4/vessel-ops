@@ -21,3 +21,12 @@ cd apps/api
 alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
+
+### Web
+```bash
+cd apps/web
+npm install
+npm run dev
+```
+
+The web app will be available at `http://localhost:3000`. Make sure the API is running first.
