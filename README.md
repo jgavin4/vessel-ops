@@ -12,3 +12,12 @@ Inventory + maintenance management for vessels.
 ### Postgres
 ```bash
 docker compose up -d
+export DATABASE_URL="postgresql+psycopg://vessel:vessel@localhost:5432/vessel_ops"
+```
+
+### API
+```bash
+cd apps/api
+alembic upgrade head
+uvicorn app.main:app --reload --port 8000
+```
