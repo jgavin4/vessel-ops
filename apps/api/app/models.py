@@ -129,6 +129,9 @@ class Vessel(Base):
     maintenance_tasks: Mapped[list["MaintenanceTask"]] = relationship(
         back_populates="vessel", cascade="all, delete-orphan"
     )
+    comments: Mapped[list["VesselComment"]] = relationship(
+        back_populates="vessel", cascade="all, delete-orphan", order_by="VesselComment.created_at.desc()"
+    )
 
 
 class VesselInventoryRequirement(Base):
@@ -274,3 +277,19 @@ class MaintenanceLog(Base):
 
     task: Mapped[MaintenanceTask] = relationship(back_populates="logs")
     performed_by: Mapped[User] = relationship()
+
+
+class VesselComment(Base):
+    __tablename__ = "vessel_comments"
+    __table_args__ = (Index("ix_vessel_comments_vessel_id", "vessel_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    vessel_id: Mapped[int] = mapped_column(ForeignKey("vessels.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[DateTime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    vessel: Mapped[Vessel] = relationship(back_populates="comments")
+    user: Mapped[User] = relationship()

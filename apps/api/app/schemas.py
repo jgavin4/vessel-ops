@@ -198,3 +198,21 @@ class MaintenanceLogOut(MaintenanceLogBase):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# Vessel Comment Schemas
+class VesselCommentBase(BaseModel):
+    body: str = Field(min_length=1)
+
+
+class VesselCommentCreate(VesselCommentBase):
+    pass
+
+
+class VesselCommentOut(VesselCommentBase):
+    id: int
+    vessel_id: int
+    user_id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
