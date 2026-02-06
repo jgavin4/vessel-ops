@@ -20,12 +20,17 @@ export function Header() {
     enabled: isSignedIn === true,
   });
 
-  const activeMemberships = me?.memberships.filter((m) => m.status === "ACTIVE") || [];
-  const currentOrg = activeMemberships.find((m) => m.org_id === orgId);
+  const activeMemberships = React.useMemo(() => {
+    return me?.memberships?.filter((m) => m.status === "ACTIVE") || [];
+  }, [me?.memberships]);
+  
+  const currentOrg = React.useMemo(() => {
+    return activeMemberships.find((m) => m.org_id === orgId);
+  }, [activeMemberships, orgId]);
 
   // Auto-select first org if none selected
   React.useEffect(() => {
-    if (isSignedIn && !orgId && activeMemberships.length > 0) {
+    if (isSignedIn && !orgId && activeMemberships.length > 0 && activeMemberships[0]?.org_id) {
       setOrgId(activeMemberships[0].org_id);
     }
   }, [isSignedIn, orgId, activeMemberships, setOrgId]);
@@ -35,7 +40,7 @@ export function Header() {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between gap-2">
           <Link href="/" className="text-xl sm:text-2xl font-bold text-primary whitespace-nowrap">
-            vessel-ops
+            dock-ops
           </Link>
           <nav className="flex items-center gap-2 sm:gap-4 flex-1 justify-end min-w-0">
             {isSignedIn ? (
@@ -45,8 +50,16 @@ export function Header() {
                     <Select
                       value={orgId?.toString() || ""}
                       onChange={(e) => {
-                        const newOrgId = e.target.value ? parseInt(e.target.value, 10) : null;
-                        setOrgId(newOrgId);
+                        try {
+                          const newOrgId = e.target.value ? parseInt(e.target.value, 10) : null;
+                          if (newOrgId && !isNaN(newOrgId)) {
+                            setOrgId(newOrgId);
+                          } else if (!e.target.value) {
+                            setOrgId(null);
+                          }
+                        } catch (error) {
+                          console.error("Error updating org selection:", error);
+                        }
                       }}
                       className="w-full sm:w-48 text-sm min-w-0"
                     >

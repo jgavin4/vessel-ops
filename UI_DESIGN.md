@@ -1,4 +1,4 @@
-# vessel-ops — UI Design (v1)
+# dock-ops — UI Design (v1)
 
 This doc defines the web UI behavior and layout for Inventory, Maintenance, and Comments inside the Vessel Detail experience. The goal is a professional, simple UI that mirrors the backend state and is easy to use.
 

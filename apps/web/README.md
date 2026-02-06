@@ -1,4 +1,4 @@
-# vessel-ops Web Dashboard
+# dock-ops Web Dashboard
 
 Next.js web application for managing vessels, inventory, and maintenance.
 

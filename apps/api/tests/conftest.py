@@ -14,7 +14,7 @@ from app.models import Organization, OrgMembership, User
 
 # Use a test database URL (can be overridden with TEST_DATABASE_URL env var)
 TEST_DATABASE_URL = os.getenv(
-    "TEST_DATABASE_URL", "postgresql+psycopg://vessel:vessel@localhost:5432/vessel_ops_test"
+    "TEST_DATABASE_URL", "postgresql+psycopg://vessel:vessel@localhost:5432/dock_ops_test"
 )
 
 

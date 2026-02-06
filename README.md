@@ -1,4 +1,4 @@
-# vessel-ops
+# dock-ops
 
 Inventory + maintenance management for vessels.
 
@@ -50,7 +50,7 @@ Inventory + maintenance management for vessels.
 
 ```bash
 docker compose up -d db
-export DATABASE_URL="postgresql+psycopg://vessel:vessel@localhost:5433/vessel_ops"
+export DATABASE_URL="postgresql+psycopg://vessel:vessel@localhost:5433/dock_ops"
 ```
 
 **Note:** The database runs on port 5433 to avoid conflicts with local PostgreSQL instances.
@@ -109,7 +109,7 @@ The web app will be available at `http://localhost:3000`.
 ### Backend (`apps/api/.env`)
 
 ```bash
-DATABASE_URL=postgresql+psycopg://vessel:vessel@localhost:5433/vessel_ops
+DATABASE_URL=postgresql+psycopg://vessel:vessel@localhost:5433/dock_ops
 CLERK_SECRET_KEY=sk_test_...  # Optional: for JWT verification
 CLERK_JWKS_URL=https://...clerk.accounts.dev/.well-known/jwks.json  # Optional
 RESEND_API_KEY=re_...  # Optional: for sending invite emails

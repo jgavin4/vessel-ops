@@ -9,7 +9,7 @@ from app.routers.orgs import router as orgs_router
 from app.routers.vessels import router as vessels_router
 from app.routers.imports import router as imports_router
 
-app = FastAPI(title="vessel-ops API")
+app = FastAPI(title="dock-ops API")
 
 # CORS middleware
 import os

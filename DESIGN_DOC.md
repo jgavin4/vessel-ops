@@ -1,4 +1,4 @@
-# vessel-ops — Design Doc (v1)
+# dock-ops — Design Doc (v1)
 
 ## Goal
 Inventory + maintenance management for vessels (sport boats, fishing boats, yachts). Users sign in, see vessels they can access, view alerts (missing inventory + upcoming/overdue maintenance), and can update inventory and maintenance history. Data is shared across web/mobile via one API + database.

@@ -1,4 +1,4 @@
-# vessel-ops — Auth + Orgs + Invites + Roles
+# dock-ops — Auth + Orgs + Invites + Roles
 
 ## Goal
 Support multi-tenant organizations (marinas). Users can belong to multiple orgs. Vessels belong to exactly one org. Orgs invite users via email. Role-based permissions control what users can do.

@@ -1,12 +1,12 @@
 # API Tests
 
-This directory contains comprehensive tests for the vessel-ops API.
+This directory contains comprehensive tests for the dock-ops API.
 
 ## Setup
 
 1. **Create test database** (if not already created):
    ```bash
-   docker compose exec -T db psql -U vessel -d postgres -c "CREATE DATABASE vessel_ops_test;"
+   docker compose exec -T db psql -U vessel -d postgres -c "CREATE DATABASE dock_ops_test;"
    ```
 
 2. **Install test dependencies** (already in requirements.txt):
@@ -20,7 +20,7 @@ Run all tests:
 ```bash
 cd apps/api
 source venv/bin/activate
-export TEST_DATABASE_URL="postgresql+psycopg://vessel:vessel@localhost:5432/vessel_ops_test"
+export TEST_DATABASE_URL="postgresql+psycopg://vessel:vessel@localhost:5432/dock_ops_test"
 pytest tests/ -v
 ```
 
@@ -73,7 +73,7 @@ The test suite covers:
 
 ## Test Database
 
-Tests use a separate test database (`vessel_ops_test`) to avoid affecting development data. The test fixtures automatically:
+Tests use a separate test database (`dock_ops_test`) to avoid affecting development data. The test fixtures automatically:
 - Create all tables before each test
 - Clean up (drop tables) after each test
 - Seed test organization and user data

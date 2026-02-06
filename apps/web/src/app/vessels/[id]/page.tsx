@@ -5,32 +5,15 @@ import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/rea
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useApi } from "@/hooks/use-api";
-import { getVessel, updateVessel, type VesselUpdate } from "@/lib/api";
-import {
-  listInventoryRequirements,
-  createInventoryRequirement,
-  updateInventoryRequirement,
-  deleteInventoryRequirement,
-  listInventoryChecks,
-  createInventoryCheck,
-  getInventoryCheck,
-  updateInventoryCheckLines,
-  submitInventoryCheck,
-  getRequirementHistory,
-  listMaintenanceTasks,
-  createMaintenanceTask,
-  updateMaintenanceTask,
-  createMaintenanceLog,
-  listMaintenanceLogs,
-  listVesselComments,
-  createVesselComment,
-  type InventoryRequirement,
-  type InventoryRequirementCreate,
-  type InventoryRequirementUpdate,
-  type InventoryCheck,
-  type InventoryCheckLine,
-  type InventoryCheckLineCreate,
-  type MaintenanceLog,
+import type { VesselUpdate } from "@/lib/api";
+import type {
+  InventoryRequirement,
+  InventoryRequirementCreate,
+  InventoryRequirementUpdate,
+  InventoryCheck,
+  InventoryCheckLine,
+  InventoryCheckLineCreate,
+  MaintenanceLog,
 } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,6 +49,7 @@ function getUserInitials(name?: string | null, email?: string | null): string {
 }
 
 function OverviewTab({ vessel }: { vessel: any }) {
+  const api = useApi();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<VesselUpdate>({
@@ -74,7 +58,7 @@ function OverviewTab({ vessel }: { vessel: any }) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: VesselUpdate) => updateVessel(vessel.id, data),
+    mutationFn: (data: VesselUpdate) => api.updateVessel(vessel.id, data),
     onSuccess: () => {
       toast.success("Vessel updated successfully");
       queryClient.invalidateQueries({ queryKey: ["vessels", vessel.id] });
@@ -240,7 +224,7 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
   // Get in-progress check or create one
   const { data: inProgressCheck } = useQuery({
     queryKey: ["inventory-check", inProgressCheckId],
-    queryFn: () => getInventoryCheck(inProgressCheckId!),
+    queryFn: () => api.getInventoryCheck(inProgressCheckId!),
     enabled: !!inProgressCheckId,
   });
 
@@ -248,7 +232,7 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
   const latestSubmittedCheckId = checks?.find((c) => c.status === "submitted")?.id;
   const { data: latestSubmittedCheck } = useQuery({
     queryKey: ["inventory-check", latestSubmittedCheckId],
-    queryFn: () => getInventoryCheck(latestSubmittedCheckId!),
+    queryFn: () => api.getInventoryCheck(latestSubmittedCheckId!),
     enabled: !!latestSubmittedCheckId && !inProgressCheckId,
   });
 
@@ -286,7 +270,7 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
 
   const createRequirementMutation = useMutation({
     mutationFn: (payload: InventoryRequirementCreate) =>
-      createInventoryRequirement(vesselId, payload),
+      api.createInventoryRequirement(vesselId, payload),
     onSuccess: () => {
       toast.success("Requirement created successfully");
       queryClient.invalidateQueries({
@@ -321,7 +305,7 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
   });
 
   const deleteRequirementMutation = useMutation({
-    mutationFn: (id: number) => deleteInventoryRequirement(id),
+    mutationFn: (id: number) => api.deleteInventoryRequirement(id),
     onSuccess: () => {
       toast.success("Requirement deleted successfully");
       queryClient.invalidateQueries({
@@ -383,7 +367,7 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
         },
       ];
       
-      await updateInventoryCheckLines(checkId, { lines: updatedLines });
+      await api.updateInventoryCheckLines(checkId, { lines: updatedLines });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -680,6 +664,7 @@ function RequirementModal({
   onSave: (payload: InventoryRequirementCreate | InventoryRequirementUpdate) => void;
   isSaving: boolean;
 }) {
+  const api = useApi();
   const [formData, setFormData] = useState({
     item_name: "",
     required_quantity: 1,
@@ -692,7 +677,7 @@ function RequirementModal({
 
   const { data: history, isLoading: historyLoading } = useQuery<InventoryCheckLine[]>({
     queryKey: ["requirement-history", requirement?.id],
-    queryFn: () => getRequirementHistory(requirement!.id),
+    queryFn: () => api.getRequirementHistory(requirement!.id),
     enabled: !!requirement && showHistory,
   });
 
@@ -1117,7 +1102,7 @@ function MaintenanceTab({ vesselId }: { vesselId: number }) {
 
   const { data: tasks, isLoading: tasksLoading } = useQuery({
     queryKey: ["maintenance-tasks", vesselId],
-    queryFn: () => listMaintenanceTasks(vesselId),
+    queryFn: () => api.listMaintenanceTasks(vesselId),
   });
 
   // Fetch latest log for each task to show last completion date
@@ -1166,7 +1151,7 @@ function MaintenanceTab({ vesselId }: { vesselId: number }) {
   ).length || 0;
 
   const createTaskMutation = useMutation({
-    mutationFn: (payload: any) => createMaintenanceTask(vesselId, payload),
+    mutationFn: (payload: any) => api.createMaintenanceTask(vesselId, payload),
     onSuccess: () => {
       toast.success("Task created successfully");
       queryClient.invalidateQueries({
@@ -1197,7 +1182,7 @@ function MaintenanceTab({ vesselId }: { vesselId: number }) {
 
   const createLogMutation = useMutation({
     mutationFn: ({ taskId, payload }: { taskId: number; payload: any }) =>
-      createMaintenanceLog(taskId, payload),
+      api.createMaintenanceLog(taskId, payload),
     onSuccess: () => {
       toast.success("Maintenance logged successfully");
       queryClient.invalidateQueries({
@@ -1889,6 +1874,7 @@ function LogModal({
 }
 
 function CommentsTab({ vesselId }: { vesselId: number }) {
+  const api = useApi();
   const queryClient = useQueryClient();
   const [commentText, setCommentText] = useState("");
 
@@ -1899,7 +1885,7 @@ function CommentsTab({ vesselId }: { vesselId: number }) {
 
   const createCommentMutation = useMutation({
     mutationFn: (payload: { body: string }) =>
-      createVesselComment(vesselId, payload),
+      api.createVesselComment(vesselId, payload),
     onSuccess: () => {
       toast.success("Comment posted");
       queryClient.invalidateQueries({
@@ -1987,12 +1973,13 @@ function CommentsTab({ vesselId }: { vesselId: number }) {
 export default function VesselDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const api = useApi();
   const vesselId = parseInt(params.id as string);
   const [activeTab, setActiveTab] = useState("overview");
 
   const { data: vessel, isLoading, error } = useQuery({
     queryKey: ["vessels", vesselId],
-    queryFn: () => getVessel(vesselId),
+    queryFn: () => api.getVessel(vesselId),
     enabled: !!vesselId && !isNaN(vesselId),
   });
 

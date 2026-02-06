@@ -27,7 +27,7 @@ router = APIRouter(tags=["organizations"])
 def send_invite_email(email: str, token: str, org_name: str):
     """Send invite email via Resend."""
     resend_api_key = os.getenv("RESEND_API_KEY")
-    from_email = os.getenv("FROM_EMAIL", "noreply@vessel-ops.com")
+    from_email = os.getenv("FROM_EMAIL", "noreply@dock-ops.com")
     base_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
     
     if not resend_api_key:
@@ -43,7 +43,7 @@ def send_invite_email(email: str, token: str, org_name: str):
         resend.Emails.send({
             "from": from_email,
             "to": email,
-            "subject": f"Invitation to join {org_name} on vessel-ops",
+            "subject": f"Invitation to join {org_name} on dock-ops",
             "html": f"""
             <h2>You've been invited to join {org_name}</h2>
             <p>Click the link below to accept your invitation:</p>

@@ -8,7 +8,7 @@ import { Header } from "@/components/header";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "vessel-ops",
+  title: "dock-ops",
   description: "Inventory + maintenance management for vessels",
 };
 
