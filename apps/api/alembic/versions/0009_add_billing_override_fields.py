@@ -17,6 +17,15 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    # Increase alembic_version.version_num column length to support longer revision IDs
+    # The default is VARCHAR(32) but some revision IDs are longer (e.g., 0010_add_stripe_subscription_fields is 35 chars)
+    # Use USING clause to ensure type conversion works correctly
+    try:
+        op.execute("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(255) USING version_num::VARCHAR(255)")
+    except Exception:
+        # If column is already VARCHAR(255) or doesn't exist, continue
+        pass
+    
     # Add billing override fields to organizations table
     op.add_column(
         "organizations",

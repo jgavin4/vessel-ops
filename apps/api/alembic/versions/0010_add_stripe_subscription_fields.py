@@ -17,6 +17,16 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    # Increase alembic_version.version_num column length to support longer revision IDs
+    # This is needed because this revision ID (0010_add_stripe_subscription_fields) is 35 chars
+    # but the default alembic_version.version_num column is only VARCHAR(32)
+    # Use a try/except in case it's already been altered or doesn't exist
+    try:
+        op.execute("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(255) USING version_num::VARCHAR(255)")
+    except Exception:
+        # Column might already be VARCHAR(255) or table might not exist yet (shouldn't happen)
+        pass
+    
     # Add Stripe subscription fields to organizations table
     op.add_column(
         "organizations",

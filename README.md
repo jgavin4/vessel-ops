@@ -51,7 +51,7 @@ Inventory + maintenance management for vessels.
 
 ```bash
 docker compose up -d db
-export DATABASE_URL="postgresql+psycopg://vessel:vessel@localhost:5433/dock_ops"
+export DATABASE_URL="postgresql+psycopg://dock_ops:dock_ops@localhost:5433/dock_ops"
 ```
 
 **Note:** The database runs on port 5433 to avoid conflicts with local PostgreSQL instances.

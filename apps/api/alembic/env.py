@@ -33,6 +33,50 @@ if database_url.startswith("postgresql://") and "+psycopg" not in database_url:
 
 config.set_main_option("sqlalchemy.url", database_url)
 
+# Ensure alembic_version table can handle longer revision IDs
+# Some revision IDs are longer than the default VARCHAR(32) limit
+# This must happen before migrations run, so Alembic can update the version_num column
+def ensure_alembic_version_column_length():
+    """Ensure alembic_version.version_num column is large enough for long revision IDs."""
+    from sqlalchemy import create_engine, inspect, text
+    
+    engine = None
+    try:
+        engine = create_engine(database_url)
+        inspector = inspect(engine)
+        
+        # Check if alembic_version table exists
+        if "alembic_version" in inspector.get_table_names():
+            # Get column info
+            columns = inspector.get_columns("alembic_version")
+            version_num_col = next((col for col in columns if col["name"] == "version_num"), None)
+            
+            if version_num_col:
+                # Check if it's VARCHAR(32) or smaller
+                col_type = str(version_num_col["type"])
+                if "VARCHAR" in col_type.upper() or "CHARACTER VARYING" in col_type.upper():
+                    # Extract length if present (e.g., "VARCHAR(32)")
+                    import re
+                    match = re.search(r'\((\d+)\)', col_type)
+                    if match:
+                        length = int(match.group(1))
+                        if length < 255:
+                            # Alter column to VARCHAR(255)
+                            with engine.connect() as conn:
+                                conn.execute(text("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(255) USING version_num::VARCHAR(255)"))
+                                conn.commit()
+    except Exception:
+        # If we can't alter the column, continue anyway - migrations might still work
+        # or the column might already be the correct size
+        pass
+    finally:
+        if engine:
+            engine.dispose()
+
+# Run this check before migrations
+if not context.is_offline_mode():
+    ensure_alembic_version_column_length()
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
