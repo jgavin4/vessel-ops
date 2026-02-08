@@ -6,15 +6,15 @@ services:
     container_name: dock_ops_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: vessel
-      POSTGRES_PASSWORD: vessel
+      POSTGRES_USER: dock_ops
+      POSTGRES_PASSWORD: dock_ops
       POSTGRES_DB: dock_ops
     ports:
       - "5433:5432"
     volumes:
       - dock_ops_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U vessel"]
+      test: ["CMD-SHELL", "pg_isready -U dock_ops"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,7 +28,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+psycopg://vessel:vessel@db:5432/dock_ops
+      DATABASE_URL: postgresql+psycopg://dock_ops:dock_ops@db:5432/dock_ops
       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
       CLERK_JWKS_URL: ${CLERK_JWKS_URL:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}

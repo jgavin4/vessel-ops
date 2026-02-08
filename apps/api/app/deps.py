@@ -68,9 +68,31 @@ def get_current_auth(
     )
     
     if not membership:
+        # Log for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            f"Membership check failed: user_id={user.id}, org_id={org_id}, "
+            f"email={user.email}, auth_subject={user.auth_subject}"
+        )
+        # Check if membership exists but with different status
+        all_memberships = (
+            db.execute(
+                select(OrgMembership).where(
+                    OrgMembership.org_id == org_id,
+                    OrgMembership.user_id == user.id
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if all_memberships:
+            logger.warning(
+                f"Found membership(s) with status(es): {[m.status.value for m in all_memberships]}"
+            )
         raise HTTPException(
             status_code=403,
-            detail="User is not an active member of this organization"
+            detail=f"User is not an active member of this organization (user_id={user.id}, org_id={org_id})"
         )
     
     return AuthContext(

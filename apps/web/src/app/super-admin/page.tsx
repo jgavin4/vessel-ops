@@ -114,6 +114,8 @@ export default function SuperAdminPage() {
       setReviewNotes("");
       queryClient.invalidateQueries({ queryKey: ["all-org-requests"] });
       queryClient.invalidateQueries({ queryKey: ["all-orgs"] });
+      // Invalidate "me" query to refresh memberships for the requesting user
+      // Note: This only helps if the requesting user refreshes their page
       queryClient.invalidateQueries({ queryKey: ["me"] });
     },
     onError: (error: Error) => {
@@ -184,6 +186,7 @@ export default function SuperAdminPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="orgs">Organizations</TabsTrigger>
+          <TabsTrigger value="requests">Requests</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
         </TabsList>
 

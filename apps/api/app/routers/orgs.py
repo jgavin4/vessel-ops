@@ -252,13 +252,31 @@ def review_org_request(
         db.add(org)
         db.flush()
         
-        membership = OrgMembership(
-            org_id=org.id,
-            user_id=request.requested_by_user_id,
-            role=OrgRole.ADMIN,
-            status=MembershipStatus.ACTIVE
+        # Check if membership already exists (shouldn't happen, but handle it)
+        existing_membership = (
+            db.execute(
+                select(OrgMembership).where(
+                    OrgMembership.org_id == org.id,
+                    OrgMembership.user_id == request.requested_by_user_id
+                )
+            )
+            .scalars()
+            .one_or_none()
         )
-        db.add(membership)
+        
+        if existing_membership:
+            # Update existing membership to ACTIVE and ADMIN role
+            existing_membership.status = MembershipStatus.ACTIVE
+            existing_membership.role = OrgRole.ADMIN
+        else:
+            # Create new membership
+            membership = OrgMembership(
+                org_id=org.id,
+                user_id=request.requested_by_user_id,
+                role=OrgRole.ADMIN,
+                status=MembershipStatus.ACTIVE
+            )
+            db.add(membership)
     
     db.commit()
     db.refresh(request)
@@ -707,13 +725,31 @@ def review_org_request_super_admin(
         db.add(org)
         db.flush()
         
-        membership = OrgMembership(
-            org_id=org.id,
-            user_id=request.requested_by_user_id,
-            role=OrgRole.ADMIN,
-            status=MembershipStatus.ACTIVE
+        # Check if membership already exists (shouldn't happen, but handle it)
+        existing_membership = (
+            db.execute(
+                select(OrgMembership).where(
+                    OrgMembership.org_id == org.id,
+                    OrgMembership.user_id == request.requested_by_user_id
+                )
+            )
+            .scalars()
+            .one_or_none()
         )
-        db.add(membership)
+        
+        if existing_membership:
+            # Update existing membership to ACTIVE and ADMIN role
+            existing_membership.status = MembershipStatus.ACTIVE
+            existing_membership.role = OrgRole.ADMIN
+        else:
+            # Create new membership
+            membership = OrgMembership(
+                org_id=org.id,
+                user_id=request.requested_by_user_id,
+                role=OrgRole.ADMIN,
+                status=MembershipStatus.ACTIVE
+            )
+            db.add(membership)
     
     db.commit()
     db.refresh(request)

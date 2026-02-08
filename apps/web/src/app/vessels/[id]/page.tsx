@@ -223,6 +223,7 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
   const { data: groups, isLoading: groupsLoading } = useQuery({
     queryKey: ["inventory-groups", vesselId],
     queryFn: () => api.listInventoryGroups(vesselId),
+    enabled: !!vesselId,
   });
 
   const { data: checks } = useQuery({
@@ -477,6 +478,153 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
     }
   }, [requirements, selectedGroupFilter, groupedRequirements]);
 
+  // Helper function to render requirement card
+  const renderRequirementCard = (req: InventoryRequirement) => {
+    const currentQty = latestQuantities[req.id]?.qty ?? 0;
+    const lastUpdated = latestQuantities[req.id]?.updatedAt;
+    const isMissing = currentQty < req.required_quantity;
+    return (
+      <div
+        key={req.id}
+        className={`border rounded-lg p-4 ${
+          req.critical && isMissing
+            ? "border-destructive bg-destructive/5"
+            : ""
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <h4 className="font-medium">{req.item_name}</h4>
+              {req.critical && (
+                <Badge variant="destructive" className="text-xs">
+                  Critical
+                </Badge>
+              )}
+              {req.category && (
+                <Badge variant="outline" className="text-xs">
+                  {req.category}
+                </Badge>
+              )}
+            </div>
+            <div className="text-sm text-muted-foreground space-y-1">
+              <p>
+                Required: {req.required_quantity} | Current:{" "}
+                <span
+                  className={
+                    isMissing ? "text-destructive font-medium" : ""
+                  }
+                >
+                  {currentQty}
+                </span>
+                {isMissing && (
+                  <span className="text-destructive ml-1">
+                    ({req.required_quantity - currentQty} missing)
+                  </span>
+                )}
+              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs">
+                  {lastUpdated
+                    ? `Last updated: ${format(new Date(lastUpdated), "PPp")}`
+                    : `Created: ${format(new Date(req.created_at), "PPp")}`}
+                </p>
+                {lastUpdated &&
+                  latestQuantities[req.id] &&
+                  (latestQuantities[req.id].userName ||
+                    latestQuantities[req.id].userEmail) && (
+                    <span
+                      className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-medium bg-primary text-primary-foreground"
+                      title={
+                        latestQuantities[req.id].userName ||
+                        latestQuantities[req.id].userEmail ||
+                        "Unknown user"
+                      }
+                    >
+                      {getUserInitials(
+                        latestQuantities[req.id].userName,
+                        latestQuantities[req.id].userEmail
+                      )}
+                    </span>
+                  )}
+              </div>
+              {req.notes && (
+                <p className="text-xs italic">{req.notes}</p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-3 ml-4">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  updateQuantityMutation.mutate({
+                    requirementId: req.id,
+                    quantity: Math.max(0, currentQty - 1),
+                  })
+                }
+                disabled={
+                  currentQty === 0 ||
+                  updateQuantityMutation.isPending
+                }
+                className="h-8 w-8 p-0"
+              >
+                −
+              </Button>
+              <Input
+                type="number"
+                value={currentQty}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 0;
+                  updateQuantityMutation.mutate({
+                    requirementId: req.id,
+                    quantity: value,
+                  });
+                }}
+                min="0"
+                className="w-20 text-center"
+                disabled={updateQuantityMutation.isPending}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  updateQuantityMutation.mutate({
+                    requirementId: req.id,
+                    quantity: currentQty + 1,
+                  })
+                }
+                disabled={updateQuantityMutation.isPending}
+                className="h-8 w-8 p-0"
+              >
+                +
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEditingRequirement(req);
+                  setRequirementModalOpen(true);
+                }}
+              >
+                Edit
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeleteRequirementId(req.id)}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -690,153 +838,6 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
           </DialogContent>
         </Dialog>
       )}
-  // Helper function to render requirement card
-  const renderRequirementCard = (req: InventoryRequirement) => {
-    const currentQty = latestQuantities[req.id]?.qty ?? 0;
-    const lastUpdated = latestQuantities[req.id]?.updatedAt;
-    const isMissing = currentQty < req.required_quantity;
-    return (
-      <div
-        key={req.id}
-        className={`border rounded-lg p-4 ${
-          req.critical && isMissing
-            ? "border-destructive bg-destructive/5"
-            : ""
-        }`}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <h4 className="font-medium">{req.item_name}</h4>
-              {req.critical && (
-                <Badge variant="destructive" className="text-xs">
-                  Critical
-                </Badge>
-              )}
-              {req.category && (
-                <Badge variant="outline" className="text-xs">
-                  {req.category}
-                </Badge>
-              )}
-            </div>
-            <div className="text-sm text-muted-foreground space-y-1">
-              <p>
-                Required: {req.required_quantity} | Current:{" "}
-                <span
-                  className={
-                    isMissing ? "text-destructive font-medium" : ""
-                  }
-                >
-                  {currentQty}
-                </span>
-                {isMissing && (
-                  <span className="text-destructive ml-1">
-                    ({req.required_quantity - currentQty} missing)
-                  </span>
-                )}
-              </p>
-              <div className="flex items-center gap-2">
-                <p className="text-xs">
-                  {lastUpdated
-                    ? `Last updated: ${format(new Date(lastUpdated), "PPp")}`
-                    : `Created: ${format(new Date(req.created_at), "PPp")}`}
-                </p>
-                {lastUpdated &&
-                  latestQuantities[req.id] &&
-                  (latestQuantities[req.id].userName ||
-                    latestQuantities[req.id].userEmail) && (
-                    <span
-                      className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-medium bg-primary text-primary-foreground"
-                      title={
-                        latestQuantities[req.id].userName ||
-                        latestQuantities[req.id].userEmail ||
-                        "Unknown user"
-                      }
-                    >
-                      {getUserInitials(
-                        latestQuantities[req.id].userName,
-                        latestQuantities[req.id].userEmail
-                      )}
-                    </span>
-                  )}
-              </div>
-              {req.notes && (
-                <p className="text-xs italic">{req.notes}</p>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-3 ml-4">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  updateQuantityMutation.mutate({
-                    requirementId: req.id,
-                    quantity: Math.max(0, currentQty - 1),
-                  })
-                }
-                disabled={
-                  currentQty === 0 ||
-                  updateQuantityMutation.isPending
-                }
-                className="h-8 w-8 p-0"
-              >
-                −
-              </Button>
-              <Input
-                type="number"
-                value={currentQty}
-                onChange={(e) => {
-                  const value = parseInt(e.target.value) || 0;
-                  updateQuantityMutation.mutate({
-                    requirementId: req.id,
-                    quantity: value,
-                  });
-                }}
-                min="0"
-                className="w-20 text-center"
-                disabled={updateQuantityMutation.isPending}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  updateQuantityMutation.mutate({
-                    requirementId: req.id,
-                    quantity: currentQty + 1,
-                  })
-                }
-                disabled={updateQuantityMutation.isPending}
-                className="h-8 w-8 p-0"
-              >
-                +
-              </Button>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setEditingRequirement(req);
-                  setRequirementModalOpen(true);
-                }}
-              >
-                Edit
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDeleteRequirementId(req.id)}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
       {/* Add/Edit Requirement Modal */}
       <RequirementModal
@@ -860,6 +861,7 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
           createRequirementMutation.isPending ||
           updateRequirementMutation.isPending
         }
+        vesselId={vesselId}
       />
 
       {/* Delete Confirmation */}
@@ -955,6 +957,7 @@ function RequirementModal({
   const { data: groups } = useQuery({
     queryKey: ["inventory-groups", vesselId],
     queryFn: () => api.listInventoryGroups(vesselId),
+    enabled: !!vesselId,
   });
 
   const { data: history, isLoading: historyLoading } = useQuery<InventoryCheckLine[]>({

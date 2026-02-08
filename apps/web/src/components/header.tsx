@@ -29,12 +29,29 @@ export function Header() {
     return activeMemberships.find((m) => m.org_id === orgId);
   }, [activeMemberships, orgId]);
 
-  // Auto-select first org if none selected
+  // Auto-select first org if none selected, or validate/clear invalid orgId
   React.useEffect(() => {
-    if (isSignedIn && !orgId && activeMemberships.length > 0 && activeMemberships[0]?.org_id) {
+    if (!isSignedIn || !me) return;
+    
+    if (activeMemberships.length === 0) {
+      // No active memberships - clear orgId
+      if (orgId !== null) {
+        setOrgId(null);
+      }
+      return;
+    }
+    
+    // If orgId is set but not in active memberships, clear it
+    if (orgId !== null && !activeMemberships.some(m => m.org_id === orgId)) {
+      console.warn(`Invalid orgId ${orgId} in localStorage, clearing and selecting first available org`);
+      setOrgId(null);
+    }
+    
+    // Auto-select first org if none selected
+    if (!orgId && activeMemberships.length > 0 && activeMemberships[0]?.org_id) {
       setOrgId(activeMemberships[0].org_id);
     }
-  }, [isSignedIn, orgId, activeMemberships, setOrgId]);
+  }, [isSignedIn, orgId, activeMemberships, setOrgId, me]);
 
   return (
     <header className="border-b bg-white">
