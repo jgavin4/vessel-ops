@@ -62,8 +62,9 @@ class Organization(Base):
     stripe_customer_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     stripe_subscription_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     subscription_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # active/trialing/past_due/canceled/etc
-    subscription_plan: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # starter/standard/pro/unlimited
-    vessel_limit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # null = unlimited
+    subscription_plan: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # base (from Stripe)
+    addon_pack_quantity: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # from Stripe vessel pack line item
+    vessel_limit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # computed: base + addon_pack_quantity * VESSELS_PER_PACK
     current_period_end: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[DateTime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

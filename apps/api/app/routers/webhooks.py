@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import stripe
-from app.core.stripe_client import get_plan_and_limit_from_price_id
+from app.core.stripe_client import parse_subscription_items
 from app.deps import get_db
 from app.models import Organization
 
@@ -160,46 +160,39 @@ def find_org_from_subscription(subscription: dict, db: Session) -> Optional[Orga
 
 def update_org_from_subscription(subscription: dict, db: Session):
     """Update organization from Stripe subscription.
-    
-    Args:
-        subscription: Stripe subscription object
-        db: Database session
+
+    Uses STRIPE_PRICE_BASE and STRIPE_PRICE_VESSEL_PACK to identify line items.
+    Sets addon_pack_quantity from vessel pack line item and vessel_limit from
+    BASE_VESSELS_INCLUDED + addon_pack_quantity * VESSELS_PER_PACK.
     """
     org = find_org_from_subscription(subscription, db)
     if not org:
         logger.warning(f"Organization not found for subscription: {subscription.get('id')}")
         return
-    
-    # Get subscription details
+
     customer_id = subscription.get("customer")
     subscription_id = subscription.get("id")
     status = subscription.get("status")
     current_period_end = subscription.get("current_period_end")
-    
-    # Get plan from line items
-    line_items = subscription.get("items", {}).get("data", [])
-    plan_name = None
-    vessel_limit = None
-    
-    if line_items:
-        price_id = line_items[0].get("price", {}).get("id")
-        if price_id:
-            plan_info = get_plan_and_limit_from_price_id(price_id)
-            if plan_info:
-                plan_name, vessel_limit = plan_info
-    
-    # Update org
+
+    plan_name, addon_pack_quantity = parse_subscription_items(subscription)
+
+    base_vessels = int(os.getenv("BASE_VESSELS_INCLUDED", "3"))
+    vessels_per_pack = int(os.getenv("VESSELS_PER_PACK", "5"))
+    vessel_limit = base_vessels + addon_pack_quantity * vessels_per_pack if plan_name else None
+
     org.stripe_customer_id = customer_id
     org.stripe_subscription_id = subscription_id
     org.subscription_status = status
-    org.subscription_plan = plan_name
+    org.subscription_plan = plan_name or None
+    org.addon_pack_quantity = addon_pack_quantity
     org.vessel_limit = vessel_limit
-    
+
     if current_period_end:
         from datetime import datetime, timezone
         org.current_period_end = datetime.fromtimestamp(current_period_end, tz=timezone.utc)
-    
+
     db.commit()
     db.refresh(org)
-    
-    logger.info(f"Updated org {org.id} subscription: {plan_name}, status: {status}")
+
+    logger.info(f"Updated org {org.id} subscription: plan={plan_name}, addon_packs={addon_pack_quantity}, status={status}")

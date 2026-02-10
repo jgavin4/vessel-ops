@@ -437,18 +437,30 @@ export function useApi() {
           org_name: string;
           plan: string | null;
           status: string | null;
-          vessel_limit: number | null;
           current_period_end: string | null;
+          addon_pack_quantity: number;
+          base_vessels_included: number;
+          vessels_per_pack: number;
+          vessel_limit: number | null;
+          effective_vessel_limit: number | null;
           vessel_usage: { current: number; limit: number | null };
           billing_override: { active: boolean; expires_at: string | null };
         }>("/api/billing/status", {}, orgId, token)
       ),
-    createCheckoutSession: (plan: string) =>
+    createCheckoutSession: (pack_quantity: number) =>
       withAuth((token, orgId) =>
-        api.apiRequest<{ url: string }>(
-          `/api/billing/checkout-session?plan=${encodeURIComponent(plan)}`,
+        api.apiRequest<{ url: string }>("/api/billing/checkout-session", {
+          method: "POST",
+          body: JSON.stringify({ pack_quantity }),
+        }, orgId, token)
+      ),
+    updateVesselPacks: (pack_quantity: number) =>
+      withAuth((token, orgId) =>
+        api.apiRequest<{ status: string; pack_quantity: number }>(
+          "/api/billing/update-vessel-packs",
           {
             method: "POST",
+            body: JSON.stringify({ pack_quantity }),
           },
           orgId,
           token

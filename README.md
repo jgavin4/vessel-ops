@@ -6,6 +6,15 @@ Inventory + maintenance management for vessels.
 - `apps/api` — FastAPI + Postgres
 - `apps/web` — Next.js (with Clerk authentication)
 
+### Marketing site (apps/web)
+
+Public marketing content lives in the Next.js app and does not require auth or `NEXT_PUBLIC_API_BASE_URL`:
+
+- **Homepage** — `apps/web/src/app/page.tsx`: hero, features, how it works, pricing, contact form, footer.
+- **Public routes** — `/` (home), `/terms`, `/privacy` (placeholders). Contact form submits to `POST /api/contact` (MVP: logs server-side; see route for TODO to wire Resend).
+- **Nav** — `apps/web/src/components/header.tsx`: Features, Pricing, Contact, Sign In (and when signed in: Dashboard, Admin, org switcher).
+- **Contact API** — `apps/web/src/app/api/contact/route.ts`: accepts `{ name, email, message }`, returns 200 and logs; no email sent until Resend is wired.
+
 ## Prerequisites
 
 - Docker and Docker Compose

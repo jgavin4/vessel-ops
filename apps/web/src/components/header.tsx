@@ -54,7 +54,7 @@ export function Header() {
   }, [isSignedIn, orgId, activeMemberships, setOrgId, me]);
 
   return (
-    <header className="border-b bg-white">
+    <header className="border-b bg-background sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between gap-2">
           <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
@@ -68,6 +68,15 @@ export function Header() {
             />
           </Link>
           <nav className="flex items-center gap-2 sm:gap-4 flex-1 justify-end min-w-0">
+            <a href="/#features" className="hidden sm:inline-block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
+              Features
+            </a>
+            <a href="/#pricing" className="hidden sm:inline-block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
+              Pricing
+            </a>
+            <a href="/#contact" className="hidden sm:inline-block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
+              Contact
+            </a>
             {isSignedIn ? (
               <>
                 {activeMemberships.length > 0 && (
@@ -121,7 +130,7 @@ export function Header() {
                     </Link>
                   )}
                   <Link
-                    href="/"
+                    href="/dashboard"
                     className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
                   >
                     Dashboard

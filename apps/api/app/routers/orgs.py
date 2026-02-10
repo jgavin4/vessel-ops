@@ -834,8 +834,9 @@ def get_org_billing(
     return {
         "org_id": org.id,
         "org_name": org.name,
-        "subscription_plan": None,  # Placeholder for future Stripe integration
-        "subscription_status": None,  # Placeholder for future Stripe integration
+        "subscription_plan": org.subscription_plan,
+        "subscription_status": org.subscription_status,
+        "addon_pack_quantity": org.addon_pack_quantity,
         "vessel_usage": {
             "current": vessel_count,
             "limit": entitlement.vessel_limit

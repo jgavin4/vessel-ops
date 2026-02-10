@@ -1,420 +1,239 @@
-"use client";
-
-import { useUser } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect, useMemo } from "react";
-import { toast } from "sonner";
-import { useApi } from "@/hooks/use-api";
-import { useOrg } from "@/contexts/org-context";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { ImportDialog } from "@/components/import-dialog";
 import Link from "next/link";
+import Image from "next/image";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ContactForm } from "@/components/contact-form";
+import { ViewBillingCta } from "@/components/view-billing-cta";
 
-function AddVesselDialog({
-  open,
-  onOpenChange,
-  onCreate,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onCreate: (data: any) => void;
-}) {
-  const [formData, setFormData] = useState({
-    name: "",
-    make: null as string | null,
-    model: null as string | null,
-    year: null as number | null,
-    description: null as string | null,
-    location: null as string | null,
-  });
-  const [errors, setErrors] = useState<{ name?: string }>({});
+const FEATURES = [
+  {
+    title: "Inventory tracking per vessel",
+    description: "Track required vs actual inventory for each vessel. Run checks, record what's on board, and see gaps at a glance.",
+  },
+  {
+    title: "Maintenance schedules & reminders",
+    description: "Define recurring maintenance tasks and get reminders so nothing slips. Log completed work with notes and dates.",
+  },
+  {
+    title: "Activity history & audit trail",
+    description: "See who logged what and when. Full audit trail for inventory checks, maintenance, and vessel updates.",
+  },
+  {
+    title: "Organization roles & permissions",
+    description: "Invite team members with Admin or Member roles. Control who can manage vessels, billing, and settings.",
+  },
+  {
+    title: "Comments & notes per vessel",
+    description: "Add comments and notes on each vessel so your team stays aligned. Context lives where the work is.",
+  },
+];
 
-  useEffect(() => {
-    if (!open) {
-      setFormData({
-        name: "",
-        make: null,
-        model: null,
-        year: null,
-        description: null,
-        location: null,
-      });
-      setErrors({});
-    }
-  }, [open]);
+const STEPS = [
+  {
+    step: 1,
+    title: "Sign up and create your org",
+    description: "Get started in minutes. Create an organization and invite your team.",
+  },
+  {
+    step: 2,
+    title: "Add vessels and set up inventory",
+    description: "Add your vessels, define required inventory, and optionally import from CSV or Excel.",
+  },
+  {
+    step: 3,
+    title: "Run checks and stay on schedule",
+    description: "Perform inventory checks, log maintenance, and use the dashboard to stay on top of everything.",
+  },
+];
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name.trim()) {
-      setErrors({ name: "Name is required" });
-      return;
-    }
-    onCreate(formData);
-  };
+const PRICING_EXAMPLES = [
+  { vessels: 8, base: 19, packs: 1, packPrice: 25, total: 44 },
+  { vessels: 18, base: 19, packs: 3, packPrice: 25, total: 94 },
+  { vessels: 48, base: 19, packs: 9, packPrice: 25, total: 244 },
+];
 
+const SUPPORT_EMAIL = "support@dock-ops.com";
+
+export default function MarketingPage() {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add Vessel</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Name *</label>
-              <Input
-                value={formData.name}
-                onChange={(e) => {
-                  setFormData({ ...formData, name: e.target.value });
-                  if (errors.name) setErrors({ ...errors, name: undefined });
-                }}
-                placeholder="Vessel name"
-                required
-              />
-              {errors.name && (
-                <p className="text-sm text-destructive mt-1">{errors.name}</p>
-              )}
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Make</label>
-              <Input
-                value={formData.make || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    make: e.target.value || null,
-                  })
-                }
-                placeholder="Manufacturer"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Model</label>
-              <Input
-                value={formData.model || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    model: e.target.value || null,
-                  })
-                }
-                placeholder="Model"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Year</label>
-              <Input
-                type="number"
-                value={formData.year || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    year: e.target.value ? parseInt(e.target.value) : null,
-                  })
-                }
-                placeholder="Year"
-                min="1900"
-                max="2100"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Location</label>
-              <Input
-                value={formData.location || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    location: e.target.value || null,
-                  })
-                }
-                placeholder="Location"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">
-                Description
-              </label>
-              <Textarea
-                value={formData.description || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    description: e.target.value || null,
-                  })
-                }
-                placeholder="Description"
-                rows={3}
-              />
+    <div className="min-h-screen flex flex-col">
+      <main className="flex-1">
+        {/* Hero */}
+        <section className="border-b bg-muted/30">
+          <div className="container mx-auto px-4 py-16 sm:py-24">
+            <div className="max-w-3xl mx-auto text-center space-y-6">
+              <div className="flex justify-center">
+                <Image
+                  src="/assets/logo.png"
+                  alt="DockOps"
+                  width={160}
+                  height={53}
+                  className="h-12 w-auto sm:h-14"
+                  priority
+                />
+              </div>
+              <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+                Inventory + maintenance for your vessels
+              </h1>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Track required vs actual inventory, schedule maintenance, and keep an audit trail—all in one place. Built for marinas, clubs, and fleets.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Link
+                  href="/sign-up"
+                  className="inline-flex items-center justify-center rounded-md text-sm font-medium h-11 px-8 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  Get Started
+                </Link>
+                <a
+                  href="#contact"
+                  className="inline-flex items-center justify-center rounded-md text-sm font-medium h-11 px-8 border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  Talk to us
+                </a>
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit">Create Vessel</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
+        </section>
 
-function VesselCard({ vessel }: { vessel: any }) {
-  const makeModelYear = [
-    vessel.make,
-    vessel.model,
-    vessel.year?.toString(),
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardHeader>
-        <CardTitle className="text-xl">{vessel.name}</CardTitle>
-        {makeModelYear && (
-          <p className="text-sm text-muted-foreground">{makeModelYear}</p>
-        )}
-        {vessel.location && (
-          <p className="text-sm text-muted-foreground">📍 {vessel.location}</p>
-        )}
-      </CardHeader>
-      <CardContent>
-        <Link href={`/vessels/${vessel.id}`}>
-          <Button variant="outline" className="w-full">
-            View
-          </Button>
-        </Link>
-      </CardContent>
-    </Card>
-  );
-}
-
-export default function DashboardPage() {
-  const { isSignedIn, isLoaded } = useUser();
-  const router = useRouter();
-  const { orgId } = useOrg();
-  const api = useApi();
-  const queryClient = useQueryClient();
-  const [addVesselOpen, setAddVesselOpen] = useState(false);
-  const [importVesselOpen, setImportVesselOpen] = useState(false);
-
-  const { data: me, isLoading: meLoading, error: meError } = useQuery({
-    queryKey: ["me"],
-    queryFn: () => api.getMe(),
-    enabled: isSignedIn === true,
-    retry: 1,
-  });
-
-  // Redirect to onboarding if no orgs
-  useEffect(() => {
-    if (isLoaded && isSignedIn && me) {
-      const activeOrgs = me.memberships.filter((m) => m.status === "ACTIVE");
-      if (activeOrgs.length === 0) {
-        router.push("/onboarding");
-      }
-    }
-  }, [isLoaded, isSignedIn, me, router]);
-
-  const { data: vessels, isLoading, error } = useQuery({
-    queryKey: ["vessels", orgId],
-    queryFn: () => api.listVessels(),
-    enabled: !!orgId && isSignedIn === true,
-  });
-
-  const { data: billing } = useQuery({
-    queryKey: ["billing-status"],
-    queryFn: () => api.getBillingStatus(),
-    enabled: !!orgId && isSignedIn === true,
-  });
-
-  // Calculate if user can add more vessels based on billing limits
-  const canAddVessel = useMemo(() => {
-    if (!billing) return true; // Allow if billing data not loaded yet
-    // Unlimited if vessel_limit is null
-    if (billing.vessel_limit === null) return true;
-    // Can add if current usage is less than limit
-    return billing.vessel_usage.current < billing.vessel_limit;
-  }, [billing]);
-
-  const createVesselMutation = useMutation({
-    mutationFn: (data: any) => api.createVessel(data),
-    onSuccess: () => {
-      toast.success("Vessel created successfully");
-      queryClient.invalidateQueries({ queryKey: ["vessels", orgId] });
-      setAddVesselOpen(false);
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to create vessel");
-    },
-  });
-
-  if (!isLoaded || (isSignedIn && meLoading)) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center">Loading...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (isSignedIn && meError) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-destructive">
-              Error loading user data: {meError instanceof Error ? meError.message : "Unknown error"}
+        {/* Features */}
+        <section id="features" className="container mx-auto px-4 py-16 sm:py-24">
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-3">
+              Everything you need to run your fleet
+            </h2>
+            <p className="text-muted-foreground">
+              From inventory checks to maintenance logs and team collaboration.
             </p>
-            <p className="text-center text-sm text-muted-foreground mt-2">
-              Please check your connection and try refreshing the page.
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {FEATURES.map((feature) => (
+              <Card key={feature.title} className="flex flex-col">
+                <CardHeader>
+                  <CardTitle className="text-lg">{feature.title}</CardTitle>
+                  <CardDescription>{feature.description}</CardDescription>
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section className="border-t bg-muted/30">
+          <div className="container mx-auto px-4 py-16 sm:py-24">
+            <div className="text-center max-w-2xl mx-auto mb-12">
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-3">
+                How it works
+              </h2>
+              <p className="text-muted-foreground">
+                Get from signup to daily use in three steps.
+              </p>
+            </div>
+            <div className="grid gap-8 sm:grid-cols-3 max-w-4xl mx-auto">
+              {STEPS.map((item) => (
+                <div key={item.step} className="text-center space-y-3">
+                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
+                    {item.step}
+                  </div>
+                  <h3 className="font-semibold text-lg">{item.title}</h3>
+                  <p className="text-sm text-muted-foreground">{item.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Pricing */}
+        <section id="pricing" className="container mx-auto px-4 py-16 sm:py-24">
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-3">
+              Simple pricing
+            </h2>
+            <p className="text-muted-foreground">
+              Base plan includes 3 vessels. Add more with vessel packs.
             </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+          </div>
+          <div className="max-w-2xl mx-auto space-y-6">
+            <div className="flex flex-wrap gap-4 justify-center text-sm">
+              <div className="rounded-lg border bg-card px-4 py-3">
+                <span className="font-medium">Base:</span> $19/mo (3 vessels)
+              </div>
+              <div className="rounded-lg border bg-card px-4 py-3">
+                <span className="font-medium">+5 vessels:</span> $25/mo per pack
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {PRICING_EXAMPLES.map((ex) => (
+                <Card key={ex.vessels}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg">{ex.vessels} vessels</CardTitle>
+                    <CardDescription>
+                      Base + {ex.packs} pack{ex.packs !== 1 ? "s" : ""}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-2xl font-bold">${ex.total}/mo</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      $19 + {ex.packs}×$25
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <ViewBillingCta />
+          </div>
+        </section>
 
-  if (isSignedIn && !me) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center">Loading user data...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+        {/* Contact */}
+        <section id="contact" className="border-t bg-muted/30">
+          <div className="container mx-auto px-4 py-16 sm:py-24">
+            <div className="max-w-xl mx-auto space-y-8">
+              <div className="text-center">
+                <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-3">
+                  Contact us
+                </h2>
+                <p className="text-muted-foreground mb-2">
+                  Questions or want to discuss your fleet? Reach out.
+                </p>
+                <a
+                  href={`mailto:${SUPPORT_EMAIL}`}
+                  className="text-primary font-medium hover:underline"
+                >
+                  {SUPPORT_EMAIL}
+                </a>
+              </div>
+              <ContactForm />
+            </div>
+          </div>
+        </section>
 
-  if (isSignedIn && !orgId && me) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center">Loading organization...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!isSignedIn) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">
-              Please sign in to view vessels
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {[1, 2, 3].map((i) => (
-          <Card key={i} className="animate-pulse">
-            <CardHeader>
-              <div className="h-6 bg-muted rounded w-3/4"></div>
-              <div className="h-4 bg-muted rounded w-1/2 mt-2"></div>
-            </CardHeader>
-            <CardContent>
-              <div className="h-10 bg-muted rounded"></div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <p className="text-destructive">
-            Error loading vessels: {error.message}
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Vessels</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setImportVesselOpen(true)}>
-            Import
-          </Button>
-          <Button 
-            onClick={() => setAddVesselOpen(true)}
-            disabled={!canAddVessel}
-            title={
-              !canAddVessel
-                ? "Vessel limit reached. Upgrade your plan to add more vessels."
-                : ""
-            }
-          >
-            Add Vessel
-          </Button>
-        </div>
-      </div>
-
-      {vessels && vessels.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {vessels.map((vessel) => (
-            <VesselCard key={vessel.id} vessel={vessel} />
-          ))}
-        </div>
-      ) : (
-        <Card className="py-12">
-          <CardContent className="text-center">
-            <p className="text-lg text-muted-foreground mb-4">
-              No vessels yet
-            </p>
-            <Button
-              onClick={() => setAddVesselOpen(true)}
-              disabled={!canAddVessel}
-              title={
-                !canAddVessel
-                  ? "Vessel limit reached. Upgrade your plan to add more vessels."
-                  : ""
-              }
-            >
-              Add your first vessel
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      <AddVesselDialog
-        open={addVesselOpen}
-        onOpenChange={setAddVesselOpen}
-        onCreate={(data) => createVesselMutation.mutate(data)}
-      />
+        {/* Footer */}
+        <footer className="border-t">
+          <div className="container mx-auto px-4 py-8">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p className="text-sm text-muted-foreground">
+                © {new Date().getFullYear()} DockOps. All rights reserved.
+              </p>
+              <nav className="flex items-center gap-6">
+                <Link
+                  href="/terms"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Terms
+                </Link>
+                <Link
+                  href="/privacy"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Privacy
+                </Link>
+              </nav>
+            </div>
+          </div>
+        </footer>
+      </main>
     </div>
   );
 }

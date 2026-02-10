@@ -1,7 +1,7 @@
 """Stripe client initialization and utilities."""
 import os
 import stripe
-from typing import Optional, Dict, Tuple
+from typing import Optional
 
 # Initialize Stripe
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -9,57 +9,45 @@ if not stripe.api_key:
     raise RuntimeError("STRIPE_SECRET_KEY environment variable is required")
 
 
-def get_price_id_for_plan(plan: str) -> Optional[str]:
-    """Get Stripe price ID for a plan.
-    
+def get_base_price_id() -> Optional[str]:
+    """Get Stripe price ID for the base plan ($19/mo, includes BASE_VESSELS_INCLUDED vessels)."""
+    return os.getenv("STRIPE_PRICE_BASE")
+
+
+def get_vessel_pack_price_id() -> Optional[str]:
+    """Get Stripe price ID for the vessel add-on pack (+5 vessels, $10/mo)."""
+    return os.getenv("STRIPE_PRICE_VESSEL_PACK")
+
+
+def is_vessel_pack_price_id(price_id: str) -> bool:
+    """Return True if price_id is the vessel pack add-on price."""
+    return price_id == get_vessel_pack_price_id()
+
+
+def parse_subscription_items(subscription: dict) -> tuple[str, int]:
+    """Parse subscription line items to get plan name and addon pack quantity.
+
     Args:
-        plan: Plan name (starter, standard, pro, unlimited)
-        
+        subscription: Stripe subscription object (with items.data).
+
     Returns:
-        Stripe price ID or None if not found
+        Tuple of (plan_name, addon_pack_quantity).
+        plan_name is "base" if base price is present, else None/empty.
+        addon_pack_quantity is the quantity of the vessel pack line item (0 if none).
     """
-    price_mapping = {
-        "starter": os.getenv("STRIPE_PRICE_STARTER"),
-        "standard": os.getenv("STRIPE_PRICE_STANDARD"),
-        "pro": os.getenv("STRIPE_PRICE_PRO"),
-        "unlimited": os.getenv("STRIPE_PRICE_UNLIMITED"),
-    }
-    return price_mapping.get(plan.lower())
+    base_price_id = get_base_price_id()
+    pack_price_id = get_vessel_pack_price_id()
+    plan_name = ""
+    addon_pack_quantity = 0
 
+    line_items = subscription.get("items", {}).get("data", [])
+    for item in line_items:
+        price_id = (item.get("price") or {}).get("id")
+        if not price_id:
+            continue
+        if price_id == base_price_id:
+            plan_name = "base"
+        elif price_id == pack_price_id:
+            addon_pack_quantity = int(item.get("quantity") or 0)
 
-def get_plan_and_limit_from_price_id(price_id: str) -> Optional[Tuple[str, Optional[int]]]:
-    """Get plan name and vessel limit from Stripe price ID.
-    
-    Args:
-        price_id: Stripe price ID
-        
-    Returns:
-        Tuple of (plan_name, vessel_limit) or None if not found
-        vessel_limit is None for unlimited plans
-    """
-    price_to_plan = {
-        os.getenv("STRIPE_PRICE_STARTER"): ("starter", 3),
-        os.getenv("STRIPE_PRICE_STANDARD"): ("standard", 5),
-        os.getenv("STRIPE_PRICE_PRO"): ("pro", 10),
-        os.getenv("STRIPE_PRICE_UNLIMITED"): ("unlimited", None),
-    }
-    
-    return price_to_plan.get(price_id)
-
-
-def get_vessel_limit_for_plan(plan: str) -> Optional[int]:
-    """Get vessel limit for a plan.
-    
-    Args:
-        plan: Plan name (starter, standard, pro, unlimited)
-        
-    Returns:
-        Vessel limit (None for unlimited)
-    """
-    plan_limits = {
-        "starter": 3,
-        "standard": 5,
-        "pro": 10,
-        "unlimited": None,
-    }
-    return plan_limits.get(plan.lower())
+    return (plan_name, addon_pack_quantity)
