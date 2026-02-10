@@ -154,9 +154,12 @@ export default function AdminPage() {
           <p className="text-muted-foreground text-sm mb-4">
             Manage your subscription, add vessel packs, and view usage.
           </p>
-          <Button asChild variant="outline">
-            <Link href="/admin/billing">Billing & subscription</Link>
-          </Button>
+          <Link
+            href="/admin/billing"
+            className="inline-flex items-center justify-center rounded-md text-sm font-medium h-9 px-4 border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            Billing & subscription
+          </Link>
         </CardContent>
       </Card>
 

@@ -392,9 +392,12 @@ export default function DashboardPage() {
             <p className="text-sm text-amber-900">
               You&apos;ve reached your vessel limit. Add more vessel packs in Billing to allow additional vessels.
             </p>
-            <Button asChild variant="outline" size="sm">
-              <Link href="/admin/billing">Manage Billing</Link>
-            </Button>
+            <Link
+              href="/admin/billing"
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium h-9 px-3 border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              Manage Billing
+            </Link>
           </CardContent>
         </Card>
       )}
