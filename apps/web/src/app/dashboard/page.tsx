@@ -247,7 +247,7 @@ export default function DashboardPage() {
   const effectiveLimit = billing?.vessel_usage?.limit ?? billing?.effective_vessel_limit ?? billing?.vessel_limit;
   const canAddVessel = useMemo(() => {
     if (!billing) return true; // Allow if billing data not loaded yet
-    if (effectiveLimit === null) return true; // Unlimited
+    if (effectiveLimit == null) return true; // Unlimited or not yet set
     return billing.vessel_usage.current < effectiveLimit;
   }, [billing, effectiveLimit]);
 
@@ -362,7 +362,7 @@ export default function DashboardPage() {
 
   const currentMembership = me?.memberships?.find((m) => m.org_id === orgId);
   const isAdmin = currentMembership?.role === "ADMIN";
-  const atVesselLimit = billing && effectiveLimit !== null && billing.vessel_usage.current >= effectiveLimit;
+  const atVesselLimit = billing && typeof effectiveLimit === "number" && billing.vessel_usage.current >= effectiveLimit;
 
   return (
     <div>
