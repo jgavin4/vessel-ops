@@ -227,7 +227,7 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
 
   const { data: requirements, isLoading: requirementsLoading } = useQuery({
     queryKey: ["inventory-requirements", vesselId],
-    queryFn: () => listInventoryRequirements(vesselId),
+    queryFn: () => api.listInventoryRequirements(vesselId),
   });
 
   const { data: groups, isLoading: groupsLoading } = useQuery({
@@ -238,7 +238,7 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
 
   const { data: checks } = useQuery({
     queryKey: ["inventory-checks", vesselId],
-    queryFn: () => listInventoryChecks(vesselId),
+    queryFn: () => api.listInventoryChecks(vesselId),
   });
 
   // Get in-progress check or create one
@@ -1537,7 +1537,7 @@ function MaintenanceTab({ vesselId }: { vesselId: number }) {
   const logQueries = useQueries({
     queries: taskIds.map((taskId) => ({
       queryKey: ["maintenance-logs", taskId],
-      queryFn: () => listMaintenanceLogs(taskId),
+      queryFn: () => api.listMaintenanceLogs(taskId),
       enabled: !!taskId && taskIds.length > 0,
     })),
   });
@@ -1629,7 +1629,7 @@ function MaintenanceTab({ vesselId }: { vesselId: number }) {
 
   const { data: logs, isLoading: logsLoading } = useQuery({
     queryKey: ["maintenance-logs", viewingLogsTaskId],
-    queryFn: () => listMaintenanceLogs(viewingLogsTaskId!),
+    queryFn: () => api.listMaintenanceLogs(viewingLogsTaskId!),
     enabled: !!viewingLogsTaskId,
   });
 
@@ -2307,7 +2307,7 @@ function CommentsTab({ vesselId }: { vesselId: number }) {
 
   const { data: comments, isLoading: commentsLoading } = useQuery({
     queryKey: ["vessel-comments", vesselId],
-    queryFn: () => listVesselComments(vesselId),
+    queryFn: () => api.listVesselComments(vesselId),
   });
 
   const createCommentMutation = useMutation({
