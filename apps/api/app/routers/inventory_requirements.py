@@ -99,7 +99,7 @@ def create_requirement(
     return requirement
 
 
-@router.patch("/{requirement_id}", response_model=InventoryRequirementOut)
+@router.patch("/api/inventory/requirements/{requirement_id}", response_model=InventoryRequirementOut)
 def update_requirement(
     payload: InventoryRequirementUpdate,
     requirement_id: int = Path(ge=1),

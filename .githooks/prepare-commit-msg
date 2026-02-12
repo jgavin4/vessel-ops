@@ -1,0 +1,27 @@
+#!/bin/sh
+
+MSG_FILE="$1"
+COMMIT_SOURCE="$2"
+
+# Skip merge commits
+if [ "$COMMIT_SOURCE" = "merge" ]; then
+  exit 0
+fi
+
+BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+
+# Skip detached HEAD
+if [ -z "$BRANCH" ] || [ "$BRANCH" = "HEAD" ]; then
+  exit 0
+fi
+
+# Replace placeholder or inject prefix
+if grep -q "^JMG(<branch>):" "$MSG_FILE"; then
+  sed -i.bak "s|^JMG(<branch>):|JMG($BRANCH):|" "$MSG_FILE"
+else
+  # If no template used (e.g. git commit -m)
+  FIRST_LINE="$(head -n 1 "$MSG_FILE")"
+  sed -i.bak "1s|^|JMG($BRANCH): |" "$MSG_FILE"
+fi
+
+rm -f "$MSG_FILE.bak"
