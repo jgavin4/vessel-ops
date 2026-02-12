@@ -23,6 +23,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -223,7 +229,7 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<InventoryGroup | null>(null);
   const [deleteGroupId, setDeleteGroupId] = useState<number | null>(null);
-  const [selectedGroupFilter, setSelectedGroupFilter] = useState<number | "all" | "ungrouped">("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: requirements, isLoading: requirementsLoading } = useQuery({
     queryKey: ["inventory-requirements", vesselId],
@@ -456,37 +462,89 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
     },
   });
 
-  // Group requirements by group
-  const groupedRequirements = React.useMemo(() => {
-    if (!requirements) return { grouped: {}, ungrouped: [] };
-    
+  // Build grouped list: groups A→Z, items within each A→Z, ungrouped at bottom. Apply search by item name and group name.
+  const inventorySections = React.useMemo(() => {
+    if (!requirements) return [];
+    const q = searchQuery.trim().toLowerCase();
+    const groupById = new Map((groups ?? []).map((g) => [g.id, g]));
+
+    const matches = (req: InventoryRequirement) => {
+      if (!q) return true;
+      const nameMatch = req.item_name.toLowerCase().includes(q);
+      if (req.parent_group_id) {
+        const group = groupById.get(req.parent_group_id);
+        const groupMatch = group?.name.toLowerCase().includes(q);
+        return nameMatch || groupMatch;
+      }
+      return nameMatch;
+    };
+
     const grouped: Record<number, InventoryRequirement[]> = {};
     const ungrouped: InventoryRequirement[] = [];
-    
     requirements.forEach((req) => {
+      if (!matches(req)) return;
       if (req.parent_group_id) {
-        if (!grouped[req.parent_group_id]) {
-          grouped[req.parent_group_id] = [];
-        }
+        if (!grouped[req.parent_group_id]) grouped[req.parent_group_id] = [];
         grouped[req.parent_group_id].push(req);
       } else {
         ungrouped.push(req);
       }
     });
-    
-    return { grouped, ungrouped };
-  }, [requirements]);
 
-  // Filter requirements based on selected group
-  const filteredRequirements = React.useMemo(() => {
-    if (selectedGroupFilter === "all") {
-      return requirements || [];
-    } else if (selectedGroupFilter === "ungrouped") {
-      return groupedRequirements.ungrouped;
-    } else {
-      return groupedRequirements.grouped[selectedGroupFilter] || [];
+    const sortItems = (a: InventoryRequirement, b: InventoryRequirement) =>
+      a.item_name.localeCompare(b.item_name, undefined, { sensitivity: "base" });
+    Object.keys(grouped).forEach((id) => {
+      grouped[Number(id)].sort(sortItems);
+    });
+    ungrouped.sort(sortItems);
+
+    const sortedGroups = (groups ?? [])
+      .filter((g) => (grouped[g.id]?.length ?? 0) > 0)
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+
+    const sections: Array<{
+      id: string;
+      name: string;
+      items: InventoryRequirement[];
+      group: InventoryGroup | null;
+      missingCount: number;
+    }> = [];
+
+    sortedGroups.forEach((group) => {
+      const items = grouped[group.id] ?? [];
+      let missingCount = 0;
+      items.forEach((req) => {
+        const current = latestQuantities[req.id]?.qty ?? 0;
+        if (current < req.required_quantity)
+          missingCount += req.required_quantity - current;
+      });
+      sections.push({
+        id: `group-${group.id}`,
+        name: group.name,
+        items,
+        group,
+        missingCount,
+      });
+    });
+
+    if (ungrouped.length > 0) {
+      let missingCount = 0;
+      ungrouped.forEach((req) => {
+        const current = latestQuantities[req.id]?.qty ?? 0;
+        if (current < req.required_quantity)
+          missingCount += req.required_quantity - current;
+      });
+      sections.push({
+        id: "ungrouped",
+        name: "Ungrouped",
+        items: ungrouped,
+        group: null,
+        missingCount,
+      });
     }
-  }, [requirements, selectedGroupFilter, groupedRequirements]);
+
+    return sections;
+  }, [requirements, groups, searchQuery, latestQuantities]);
 
   // Helper function to render requirement card
   const renderRequirementCard = (req: InventoryRequirement) => {
@@ -638,80 +696,26 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
 
   return (
     <div className="space-y-6">
-      {/* Groups Section */}
+      {/* Single inventory list: search + collapsible groups */}
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Inventory Groups</CardTitle>
-            <Button onClick={() => setGroupModalOpen(true)}>
-              Add Group
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {groupsLoading ? (
-            <div className="space-y-2">
-              {[1, 2].map((i) => (
-                <div key={i} className="h-12 bg-muted rounded animate-pulse" />
-              ))}
-            </div>
-          ) : !groups || groups.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground mb-4 text-sm">
-                No groups yet. Create groups to organize your inventory.
-              </p>
-              <Button onClick={() => setGroupModalOpen(true)} size="sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle>Inventory</CardTitle>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => setGroupModalOpen(true)}>
                 Add Group
               </Button>
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant={selectedGroupFilter === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedGroupFilter("all")}
-              >
-                All ({requirements?.length || 0})
-              </Button>
-              <Button
-                variant={selectedGroupFilter === "ungrouped" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedGroupFilter("ungrouped")}
-              >
-                Ungrouped ({groupedRequirements.ungrouped.length})
-              </Button>
-              {groups.map((group) => (
-                <Button
-                  key={group.id}
-                  variant={selectedGroupFilter === group.id ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedGroupFilter(group.id)}
-                >
-                  {group.name} ({groupedRequirements.grouped[group.id]?.length || 0})
-                </Button>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Requirements List */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Inventory Requirements</CardTitle>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setImportRequirementOpen(true)}>
+              <Button variant="outline" size="sm" onClick={() => setImportRequirementOpen(true)}>
                 Import
               </Button>
-              <Button onClick={() => setRequirementModalOpen(true)}>
+              <Button size="sm" onClick={() => setRequirementModalOpen(true)}>
                 Add Requirement
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          {requirementsLoading ? (
+        <CardContent className="space-y-4">
+          {requirementsLoading || groupsLoading ? (
             <div className="space-y-2">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="h-16 bg-muted rounded animate-pulse" />
@@ -722,71 +726,86 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
               <p className="text-muted-foreground mb-4">
                 No inventory requirements yet.
               </p>
-              <Button onClick={() => setRequirementModalOpen(true)}>
-                Add Requirement
-              </Button>
-            </div>
-          ) : selectedGroupFilter === "all" ? (
-            // Show grouped view when "all" is selected
-            <div className="space-y-6">
-              {/* Show ungrouped items first */}
-              {groupedRequirements.ungrouped.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-3">
-                    Ungrouped Items
-                  </h3>
-                  <div className="space-y-3">
-                    {groupedRequirements.ungrouped.map((req) => {
-                      return renderRequirementCard(req);
-                    })}
-                  </div>
-                </div>
-              )}
-              {/* Show grouped items */}
-              {groups?.map((group) => {
-                const groupReqs = groupedRequirements.grouped[group.id] || [];
-                if (groupReqs.length === 0) return null;
-                return (
-                  <div key={group.id}>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-semibold">{group.name}</h3>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setEditingGroup(group);
-                            setGroupModalOpen(true);
-                          }}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setDeleteGroupId(group.id)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                    {group.description && (
-                      <p className="text-xs text-muted-foreground mb-3">
-                        {group.description}
-                      </p>
-                    )}
-                    <div className="space-y-3">
-                      {groupReqs.map((req) => renderRequirementCard(req))}
-                    </div>
-                  </div>
-                );
-              })}
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button onClick={() => setGroupModalOpen(true)} variant="outline" size="sm">
+                  Add Group
+                </Button>
+                <Button onClick={() => setRequirementModalOpen(true)}>
+                  Add Requirement
+                </Button>
+              </div>
             </div>
           ) : (
-            // Show filtered list
-            <div className="space-y-3">
-              {filteredRequirements.map((req) => renderRequirementCard(req))}
-            </div>
+            <>
+              <Input
+                type="search"
+                placeholder="Search by item or group name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="max-w-sm"
+                aria-label="Search inventory by item or group name"
+              />
+              {inventorySections.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">
+                  No items match your search.
+                </p>
+              ) : (
+                <Accordion type="multiple" defaultValue={inventorySections.map((s) => s.id)}>
+                  {inventorySections.map((section) => (
+                    <AccordionItem key={section.id} value={section.id}>
+                      <div className="flex items-center gap-2">
+                        <AccordionTrigger className="flex-1 py-3 hover:no-underline">
+                          <span className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium">{section.name}</span>
+                            <span className="text-muted-foreground text-sm font-normal">
+                              {section.items.length} item{section.items.length !== 1 ? "s" : ""}
+                            </span>
+                            {section.missingCount > 0 && (
+                              <Badge variant="secondary" className="text-xs">
+                                {section.missingCount} missing
+                              </Badge>
+                            )}
+                          </span>
+                        </AccordionTrigger>
+                        {section.group && (
+                          <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8"
+                              onClick={() => {
+                                setEditingGroup(section.group!);
+                                setGroupModalOpen(true);
+                              }}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 text-destructive hover:text-destructive"
+                              onClick={() => setDeleteGroupId(section.group!.id)}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <AccordionContent>
+                        {section.group?.description && (
+                          <p className="text-xs text-muted-foreground mb-3 pl-0">
+                            {section.group.description}
+                          </p>
+                        )}
+                        <div className="space-y-3">
+                          {section.items.map((req) => renderRequirementCard(req))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
