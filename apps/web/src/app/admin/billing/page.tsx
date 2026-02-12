@@ -13,8 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { useOrg } from "@/contexts/org-context";
 
-const BASE_PRICE_DISPLAY = 19;
-const PACK_PRICE_DISPLAY = 10;
+const BASE_PRICE_DISPLAY = 10;
+const PACK_PRICE_DISPLAY = 5;
 
 export default function AdminBillingPage() {
   const { isSignedIn } = useUser();
@@ -250,7 +250,7 @@ export default function AdminBillingPage() {
           )}
           {isAtLimit && (
             <p className="text-sm text-destructive">
-              Vessel limit reached. Add more vessel packs to increase your limit.
+              Vessel limit reached. Add more boats in Billing to increase your limit.
             </p>
           )}
           {hasStripeCustomer && (
@@ -271,13 +271,10 @@ export default function AdminBillingPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Base: $19/mo includes 3 vessels.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Add-ons: +$10/mo per +5 vessels.
+            First boat: $10/mo. Each additional boat: $5/mo.
           </p>
           <div className="flex items-center gap-4 flex-wrap">
-            <span className="text-muted-foreground">Vessel packs</span>
+            <span className="text-muted-foreground">Additional boats</span>
             <div className="flex items-center gap-2">
               <Button
                 type="button"
@@ -337,7 +334,7 @@ export default function AdminBillingPage() {
               >
                 {updatePacksMutation.isPending
                   ? "Updating..."
-                  : "Update vessel packs"}
+                  : "Update vessel count"}
               </Button>
             )}
             {hasStripeCustomer && (

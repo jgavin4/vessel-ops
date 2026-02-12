@@ -10,12 +10,12 @@ if not stripe.api_key:
 
 
 def get_base_price_id() -> Optional[str]:
-    """Get Stripe price ID for the base plan $20/mo, includes BASE_VESSELS_INCLUDED vessels)."""
+    """Get Stripe price ID for the base plan ($10/mo, includes 1 vessel)."""
     return os.getenv("STRIPE_PRICE_BASE")
 
 
 def get_vessel_pack_price_id() -> Optional[str]:
-    """Get Stripe price ID for the vessel add-on pack (+5 vessels, $10/mo)."""
+    """Get Stripe price ID for additional vessels ($5/mo per boat)."""
     return os.getenv("STRIPE_PRICE_VESSEL_PACK")
 
 

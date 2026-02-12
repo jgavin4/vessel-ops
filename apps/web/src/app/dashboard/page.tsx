@@ -377,7 +377,7 @@ export default function DashboardPage() {
             disabled={!canAddVessel}
             title={
               !canAddVessel
-                ? "Vessel limit reached. Add more vessel packs in Billing to increase your limit."
+                ? "Vessel limit reached. Add more boats in Billing to increase your limit."
                 : ""
             }
           >
@@ -390,7 +390,7 @@ export default function DashboardPage() {
         <Card className="mb-6 border-amber-200 bg-amber-50">
           <CardContent className="pt-6 flex flex-wrap items-center justify-between gap-4">
             <p className="text-sm text-amber-900">
-              You&apos;ve reached your vessel limit. Add more vessel packs in Billing to allow additional vessels.
+              You&apos;ve reached your vessel limit. Add more boats in Billing to allow additional vessels.
             </p>
             <Link
               href="/admin/billing"
@@ -419,7 +419,7 @@ export default function DashboardPage() {
               disabled={!canAddVessel}
               title={
                 !canAddVessel
-                  ? "Vessel limit reached. Add more vessel packs in Billing."
+                  ? "Vessel limit reached. Add more boats in Billing."
                   : ""
               }
             >

@@ -216,8 +216,8 @@ def get_billing_status(
     ).scalar()
 
     entitlement = get_effective_entitlement(org)
-    base_vessels = int(os.getenv("BASE_VESSELS_INCLUDED", "3"))
-    vessels_per_pack = int(os.getenv("VESSELS_PER_PACK", "5"))
+    base_vessels = int(os.getenv("BASE_VESSELS_INCLUDED", "1"))
+    vessels_per_pack = int(os.getenv("VESSELS_PER_PACK", "1"))
 
     override_active = False
     if org.billing_override_enabled:

@@ -177,8 +177,8 @@ def update_org_from_subscription(subscription: dict, db: Session):
 
     plan_name, addon_pack_quantity = parse_subscription_items(subscription)
 
-    base_vessels = int(os.getenv("BASE_VESSELS_INCLUDED", "3"))
-    vessels_per_pack = int(os.getenv("VESSELS_PER_PACK", "5"))
+    base_vessels = int(os.getenv("BASE_VESSELS_INCLUDED", "1"))
+    vessels_per_pack = int(os.getenv("VESSELS_PER_PACK", "1"))
     vessel_limit = base_vessels + addon_pack_quantity * vessels_per_pack if plan_name else None
 
     org.stripe_customer_id = customer_id

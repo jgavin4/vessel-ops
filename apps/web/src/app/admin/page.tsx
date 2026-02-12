@@ -152,7 +152,7 @@ export default function AdminPage() {
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm mb-4">
-            Manage your subscription, add vessel packs, and view usage.
+            Manage your subscription, add boats, and view usage.
           </p>
           <Link
             href="/admin/billing"

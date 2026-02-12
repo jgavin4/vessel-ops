@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "DockOps",
-  description: "Inventory + maintenance management for vessels",
+  description: "Inventory + maintenance for boat owners, captains, and crews.",
   icons: {
     icon: "/assets/emblem.png",
     shortcut: "/assets/emblem.png",
