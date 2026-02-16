@@ -321,6 +321,7 @@ class MaintenanceTask(Base):
     next_due_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True))
     critical: Mapped[bool] = mapped_column(default=False, server_default="false")
     is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
+    sort_order: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[DateTime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

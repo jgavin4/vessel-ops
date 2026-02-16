@@ -110,8 +110,6 @@ function SortableSectionRow({
     >
       {!disabled && (
         <span
-          role="button"
-          tabIndex={0}
           className="touch-none cursor-grab active:cursor-grabbing p-1.5 -ml-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/80"
           {...listeners}
           {...attributes}
@@ -156,8 +154,6 @@ function SortableRequirementCard({
     >
       {!disabled && (
         <span
-          role="button"
-          tabIndex={0}
           className="touch-none cursor-grab active:cursor-grabbing p-1.5 rounded mt-3 text-muted-foreground hover:text-foreground hover:bg-muted/80 shrink-0"
           {...listeners}
           {...attributes}
@@ -168,6 +164,49 @@ function SortableRequirementCard({
       )}
       <div className="flex-1 min-w-0">{children}</div>
     </div>
+  );
+}
+
+function SortableMaintenanceRow({
+  id,
+  children,
+  disabled,
+}: {
+  id: number;
+  children: React.ReactNode;
+  disabled?: boolean;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: String(id), disabled });
+  return (
+    <tr
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+      className={cn(isDragging && "opacity-50 bg-muted/50")}
+    >
+      <td className="p-2 w-10 align-top">
+        {!disabled && (
+          <span
+            className="touch-none cursor-grab active:cursor-grabbing p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/80 inline-block"
+            {...listeners}
+            {...attributes}
+            aria-label="Drag to reorder task"
+          >
+            <DragHandleIcon />
+          </span>
+        )}
+      </td>
+      {children}
+    </tr>
   );
 }
 
@@ -1863,6 +1902,7 @@ function MaintenanceTab({ vesselId }: { vesselId: number }) {
   const [logModalOpen, setLogModalOpen] = useState(false);
   const [viewingLogsTaskId, setViewingLogsTaskId] = useState<number | null>(null);
   const [filter, setFilter] = useState<"all" | "overdue" | "due_soon" | "active">("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [importTaskOpen, setImportTaskOpen] = useState(false);
 
   const { data: tasks, isLoading: tasksLoading } = useQuery({
@@ -1894,16 +1934,28 @@ function MaintenanceTab({ vesselId }: { vesselId: number }) {
   const now = new Date();
   const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  const filteredTasks = tasks?.filter((task) => {
-    if (!task.is_active && filter === "active") return false;
-    if (filter === "all") return true;
-    if (filter === "active") return task.is_active;
-    if (!task.next_due_at) return false;
-    const dueDate = new Date(task.next_due_at);
-    if (filter === "overdue") return dueDate < now;
-    if (filter === "due_soon") return dueDate <= sevenDaysFromNow && dueDate >= now;
-    return true;
-  });
+  const filteredTasks = React.useMemo(() => {
+    let list = tasks ?? [];
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (task) =>
+          task.name.toLowerCase().includes(q) ||
+          (task.description ?? "").toLowerCase().includes(q)
+      );
+    }
+    return list.filter((task) => {
+      if (!task.is_active && filter === "active") return false;
+      if (filter === "all") return true;
+      if (filter === "active") return task.is_active;
+      if (!task.next_due_at) return false;
+      const dueDate = new Date(task.next_due_at);
+      if (filter === "overdue") return dueDate < now;
+      if (filter === "due_soon")
+        return dueDate <= sevenDaysFromNow && dueDate >= now;
+      return true;
+    });
+  }, [tasks, searchQuery, filter, now, sevenDaysFromNow]);
 
   const overdueCount = tasks?.filter(
     (task) => task.next_due_at && new Date(task.next_due_at) < now
@@ -1965,6 +2017,70 @@ function MaintenanceTab({ vesselId }: { vesselId: number }) {
     },
   });
 
+  const reorderTasksMutation = useMutation({
+    mutationFn: (taskIds: number[]) =>
+      api.reorderMaintenanceTasks(vesselId, taskIds),
+    onMutate: async (taskIds) => {
+      await queryClient.cancelQueries({
+        queryKey: ["maintenance-tasks", vesselId],
+      });
+      const prev = queryClient.getQueryData<any[]>([
+        "maintenance-tasks",
+        vesselId,
+      ]);
+      if (!prev) return { prev };
+      const orderMap = new Map(taskIds.map((id, i) => [id, i]));
+      const sorted = [...prev].sort((a, b) => {
+        const oa = orderMap.get(a.id) ?? 9999;
+        const ob = orderMap.get(b.id) ?? 9999;
+        return oa - ob;
+      });
+      queryClient.setQueryData(["maintenance-tasks", vesselId], sorted);
+      return { prev };
+    },
+    onError: (_err, _taskIds, ctx) => {
+      if (ctx?.prev)
+        queryClient.setQueryData(
+          ["maintenance-tasks", vesselId],
+          ctx.prev
+        );
+      toast.error("Failed to reorder tasks");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["maintenance-tasks", vesselId],
+      });
+    },
+  });
+
+  const maintenanceSensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    })
+  );
+
+  const handleMaintenanceTaskDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const filteredIds = (filteredTasks ?? []).map((t) => t.id);
+    const oldIndex = filteredIds.indexOf(Number(active.id));
+    const newIndex = filteredIds.indexOf(Number(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const newFilteredOrder = arrayMove(filteredIds, oldIndex, newIndex);
+    const allIds = (tasks ?? []).map((t) => t.id);
+    const filteredSet = new Set(filteredIds);
+    const filteredIndices = allIds
+      .map((id, i) => (filteredSet.has(id) ? i : -1))
+      .filter((i) => i >= 0);
+    const newAllOrder = allIds.slice();
+    newFilteredOrder.forEach((id, j) => {
+      newAllOrder[filteredIndices[j]] = id;
+    });
+    reorderTasksMutation.mutate(newAllOrder);
+  };
+
+  const canEditMaintenance = true;
+
   const { data: logs, isLoading: logsLoading } = useQuery({
     queryKey: ["maintenance-logs", viewingLogsTaskId],
     queryFn: () => api.listMaintenanceLogs(viewingLogsTaskId!),
@@ -2017,9 +2133,17 @@ function MaintenanceTab({ vesselId }: { vesselId: number }) {
       {/* Tasks List */}
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle>Tasks</CardTitle>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 items-center">
+              <Input
+                type="search"
+                placeholder="Search tasks..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-48 max-w-full"
+                aria-label="Search maintenance tasks"
+              />
               <Select
                 value={filter}
                 onChange={(e) =>
@@ -2047,137 +2171,154 @@ function MaintenanceTab({ vesselId }: { vesselId: number }) {
           ) : !filteredTasks || filteredTasks.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-4">
-                {filter === "all"
+                {filter === "all" && !searchQuery.trim()
                   ? "No maintenance tasks yet."
+                  : searchQuery.trim()
+                  ? "No tasks match your search."
                   : `No ${filter.replace("_", " ")} tasks.`}
               </p>
-              {filter === "all" && (
+              {filter === "all" && !searchQuery.trim() && (
                 <Button onClick={() => setTaskModalOpen(true)}>
                   Add your first maintenance task
                 </Button>
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2">Task</th>
-                    <th className="text-left p-2">Cadence</th>
-                    <th className="text-left p-2">Next Due</th>
-                    <th className="text-left p-2">Last Completed</th>
-                    <th className="text-left p-2">Critical</th>
-                    <th className="text-left p-2">Status</th>
-                    <th className="text-left p-2">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTasks.map((task) => {
-                    const status = getTaskStatus(task);
-                    const cadenceText =
-                      task.cadence_type === "interval"
-                        ? `Every ${task.interval_days} days`
-                        : task.due_date
-                        ? `Due on ${format(new Date(task.due_date), "yyyy-MM-dd")}`
-                        : "No cadence";
-                    return (
-                      <tr key={task.id} className="border-b">
-                        <td className="p-2">
-                          <div>
-                            <p className="font-medium">{task.name}</p>
-                            {task.description && (
-                              <p className="text-sm text-muted-foreground">
-                                {task.description}
-                              </p>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-2">{cadenceText}</td>
-                        <td className="p-2">
-                          {task.next_due_at
-                            ? format(new Date(task.next_due_at), "PPp")
-                            : "-"}
-                        </td>
-                        <td className="p-2">
-                          {latestLogsMap[task.id] ? (
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm">
-                                {format(
-                                  new Date(latestLogsMap[task.id]!.performed_at),
-                                  "PPp"
-                                )}
-                              </span>
-                              <span
-                                className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium bg-primary text-primary-foreground"
-                                title={
-                                  latestLogsMap[task.id]!.performed_by_name ||
-                                  latestLogsMap[task.id]!.performed_by_email ||
-                                  "Unknown user"
-                                }
-                              >
-                                {getUserInitials(
-                                  latestLogsMap[task.id]!.performed_by_name,
-                                  latestLogsMap[task.id]!.performed_by_email
-                                )}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">
-                              Never
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-2">
-                          {task.critical ? (
-                            <Badge variant="destructive">Critical</Badge>
-                          ) : (
-                            "-"
-                          )}
-                        </td>
-                        <td className="p-2">
-                          <Badge variant={status.variant}>{status.label}</Badge>
-                        </td>
-                        <td className="p-2">
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                setLogTaskId(task.id);
-                                setLogModalOpen(true);
-                              }}
-                              disabled={!task.is_active}
-                            >
-                              Log Completion
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setViewingLogsTaskId(
-                                  viewingLogsTaskId === task.id ? null : task.id
-                                );
-                              }}
-                            >
-                              {viewingLogsTaskId === task.id ? "Hide" : "View"} Logs
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setEditingTask(task);
-                                setTaskModalOpen(true);
-                              }}
-                            >
-                              Edit
-                            </Button>
-                          </div>
-                        </td>
+            <DndContext
+              sensors={maintenanceSensors}
+              onDragEnd={handleMaintenanceTaskDragEnd}
+            >
+              <SortableContext
+                items={filteredTasks.map((t) => String(t.id))}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2 w-10" aria-label="Reorder" />
+                        <th className="text-left p-2">Task</th>
+                        <th className="text-left p-2">Cadence</th>
+                        <th className="text-left p-2">Next Due</th>
+                        <th className="text-left p-2">Last Completed</th>
+                        <th className="text-left p-2">Critical</th>
+                        <th className="text-left p-2">Status</th>
+                        <th className="text-left p-2">Actions</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody>
+                      {filteredTasks.map((task) => {
+                        const status = getTaskStatus(task);
+                        const cadenceText =
+                          task.cadence_type === "interval"
+                            ? `Every ${task.interval_days} days`
+                            : task.due_date
+                            ? `Due on ${format(new Date(task.due_date), "yyyy-MM-dd")}`
+                            : "No cadence";
+                        return (
+                          <SortableMaintenanceRow
+                            key={task.id}
+                            id={task.id}
+                            disabled={!canEditMaintenance}
+                          >
+                            <td className="p-2">
+                              <div>
+                                <p className="font-medium">{task.name}</p>
+                                {task.description && (
+                                  <p className="text-sm text-muted-foreground">
+                                    {task.description}
+                                  </p>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-2">{cadenceText}</td>
+                            <td className="p-2">
+                              {task.next_due_at
+                                ? format(new Date(task.next_due_at), "PPp")
+                                : "-"}
+                            </td>
+                            <td className="p-2">
+                              {latestLogsMap[task.id] ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm">
+                                    {format(
+                                      new Date(latestLogsMap[task.id]!.performed_at),
+                                      "PPp"
+                                    )}
+                                  </span>
+                                  <span
+                                    className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium bg-primary text-primary-foreground"
+                                    title={
+                                      latestLogsMap[task.id]!.performed_by_name ||
+                                      latestLogsMap[task.id]!.performed_by_email ||
+                                      "Unknown user"
+                                    }
+                                  >
+                                    {getUserInitials(
+                                      latestLogsMap[task.id]!.performed_by_name,
+                                      latestLogsMap[task.id]!.performed_by_email
+                                    )}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">
+                                  Never
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-2">
+                              {task.critical ? (
+                                <Badge variant="destructive">Critical</Badge>
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                            <td className="p-2">
+                              <Badge variant={status.variant}>{status.label}</Badge>
+                            </td>
+                            <td className="p-2">
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setLogTaskId(task.id);
+                                    setLogModalOpen(true);
+                                  }}
+                                  disabled={!task.is_active}
+                                >
+                                  Log Completion
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setViewingLogsTaskId(
+                                      viewingLogsTaskId === task.id ? null : task.id
+                                    );
+                                  }}
+                                >
+                                  {viewingLogsTaskId === task.id ? "Hide" : "View"} Logs
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingTask(task);
+                                    setTaskModalOpen(true);
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+                              </div>
+                            </td>
+                          </SortableMaintenanceRow>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </SortableContext>
+            </DndContext>
           )}
         </CardContent>
       </Card>

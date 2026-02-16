@@ -199,6 +199,7 @@ class MaintenanceTaskUpdate(BaseModel):
 class MaintenanceTaskOut(MaintenanceTaskBase):
     id: int
     vessel_id: int
+    sort_order: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 

@@ -244,6 +244,18 @@ export function useApi() {
           token
         )
       ),
+    reorderMaintenanceTasks: (vesselId: number, taskIds: number[]) =>
+      withAuth((token, orgId) =>
+        api.apiRequest<void>(
+          `/api/vessels/${vesselId}/maintenance/tasks/reorder`,
+          {
+            method: "PUT",
+            body: JSON.stringify({ task_ids: taskIds }),
+          },
+          orgId,
+          token
+        )
+      ),
     createMaintenanceLog: (taskId: number, data: api.MaintenanceLogCreate) =>
       withAuth((token, orgId) =>
         api.apiRequest<api.MaintenanceLog>(

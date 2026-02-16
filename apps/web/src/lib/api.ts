@@ -192,6 +192,7 @@ export type MaintenanceTask = {
   next_due_at: string | null;
   critical: boolean;
   is_active: boolean;
+  sort_order: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -462,6 +463,19 @@ export async function updateMaintenanceTask(
     method: "PATCH",
     body: JSON.stringify(data),
   });
+}
+
+export async function reorderMaintenanceTasks(
+  vesselId: number,
+  taskIds: number[]
+): Promise<void> {
+  return apiRequest<void>(
+    `/api/vessels/${vesselId}/maintenance/tasks/reorder`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ task_ids: taskIds }),
+    }
+  );
 }
 
 export async function createMaintenanceLog(
