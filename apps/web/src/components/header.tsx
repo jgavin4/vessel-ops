@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { useUser, SignInButton, UserButton } from "@clerk/nextjs";
 import { useOrg } from "@/contexts/org-context";
 import { useQuery } from "@tanstack/react-query";
@@ -11,9 +12,12 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
 export function Header() {
+  const pathname = usePathname();
   const { isSignedIn, user } = useUser();
   const { orgId, setOrgId } = useOrg();
   const api = useApi();
+
+  const isPublicLanding = pathname === "/";
 
   const { data: me } = useQuery({
     queryKey: ["me"],
@@ -68,18 +72,22 @@ export function Header() {
             />
           </Link>
           <nav className="flex items-center gap-2 sm:gap-4 flex-1 justify-end min-w-0">
-            <a href="/#features" className="hidden sm:inline-block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
-              Features
-            </a>
-            <a href="/#pricing" className="hidden sm:inline-block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
-              Pricing
-            </a>
-            <a href="/#contact" className="hidden sm:inline-block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
-              Contact
-            </a>
+            {isPublicLanding && (
+              <>
+                <a href="/#features" className="hidden sm:inline-block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
+                  Features
+                </a>
+                <a href="/#pricing" className="hidden sm:inline-block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
+                  Pricing
+                </a>
+                <a href="/#contact" className="hidden sm:inline-block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
+                  Contact
+                </a>
+              </>
+            )}
             {isSignedIn ? (
               <>
-                {activeMemberships.length > 0 && (
+                {!isPublicLanding && activeMemberships.length > 0 && (
                   <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1 sm:flex-initial max-w-full sm:max-w-none">
                     <Select
                       value={orgId?.toString() || ""}
@@ -113,7 +121,7 @@ export function Header() {
                   </div>
                 )}
                 <div className="hidden sm:flex items-center gap-4">
-                  {me?.user.is_super_admin && (
+                  {!isPublicLanding && me?.user.is_super_admin && (
                     <Link
                       href="/super-admin"
                       className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
@@ -121,7 +129,7 @@ export function Header() {
                       Super Admin
                     </Link>
                   )}
-                  {currentOrg?.role === "ADMIN" && (
+                  {!isPublicLanding && currentOrg?.role === "ADMIN" && (
                     <Link
                       href="/admin"
                       className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
