@@ -194,6 +194,7 @@ export type MaintenanceTask = {
   description: string | null;
   cadence_type: MaintenanceCadenceType;
   interval_days: number | null;
+  interval_hours: number | null;
   due_date: string | null;
   next_due_at: string | null;
   critical: boolean;
@@ -201,6 +202,12 @@ export type MaintenanceTask = {
   sort_order: number | null;
   created_at: string;
   updated_at: string;
+  // Computed by API when listing
+  current_total_hours?: number | null;
+  hours_since_last?: number | null;
+  hours_remaining?: number | null;
+  is_due_by_hours?: boolean | null;
+  is_due_by_date?: boolean | null;
 };
 
 export type MaintenanceTaskCreate = {
