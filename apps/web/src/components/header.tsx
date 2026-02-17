@@ -107,6 +107,11 @@ export function Header() {
                 <a href="/#contact" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
                   Contact
                 </a>
+                {isSignedIn && (
+                  <a href="/dashboard" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
+                    Dashboard
+                  </a>
+                )}
               </>
             )}
             {isSignedIn ? (
