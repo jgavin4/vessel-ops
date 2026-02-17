@@ -9,24 +9,28 @@ import { ViewBillingCta } from "@/components/view-billing-cta";
 
 const FEATURES = [
   {
-    title: "Inventory tracking per boat",
-    description: "Track required vs actual inventory for each boat. Run checks, record what's on board, and see gaps at a glance.",
+    title: "Orderable inventory with search",
+    description: "Arrange inventory items in the order that works for you and find what you need fast with search. Track required vs actual per boat and see gaps at a glance.",
   },
   {
-    title: "Maintenance schedules & reminders",
-    description: "Define recurring maintenance tasks and get reminders so nothing slips. Log completed work with notes and dates.",
+    title: "Orderable maintenance tasks with search",
+    description: "Define recurring maintenance tasks, drag to reorder, and search to jump to any task. Get reminders so nothing slips and log completed work with notes and dates.",
+  },
+  {
+    title: "Trip logging",
+    description: "Log trips and hours for each boat. Trip and engine hours drive when inventory checks and maintenance are due, so everything stays in sync.",
+  },
+  {
+    title: "Inventory & maintenance tied to hours",
+    description: "Set inventory checks and maintenance intervals by hours (e.g. every 50 hours). DockOps uses logged hours to surface what's due and keep your fleet on schedule.",
   },
   {
     title: "Activity history & audit trail",
-    description: "See who logged what and when. Full audit trail for inventory checks, maintenance, and boat updates.",
+    description: "See who logged what and when. Full audit trail for inventory checks, maintenance, trips, and boat updates.",
   },
   {
     title: "Roles & permissions",
     description: "Invite your crew with Admin or Member roles. Control who can manage boats, billing, and settings.",
-  },
-  {
-    title: "Comments & notes per boat",
-    description: "Add comments and notes on each boat so your crew stays aligned. Context lives where the work is.",
   },
 ];
 
@@ -39,12 +43,12 @@ const STEPS = [
   {
     step: 2,
     title: "Add your boat and set up inventory",
-    description: "Add your boat (or boats), define required inventory, and optionally import from CSV or Excel.",
+    description: "Add your boat (or boats), define required inventory (order and search as you like), and optionally import from CSV or Excel.",
   },
   {
     step: 3,
-    title: "Run checks and stay on schedule",
-    description: "Perform inventory checks, log maintenance, and use the dashboard to stay on top of everything.",
+    title: "Log trips and stay on schedule",
+    description: "Log trips and hours, run inventory checks and maintenance when they're due by hours, and use the dashboard to stay on top of everything.",
   },
 ];
 
@@ -76,10 +80,10 @@ export default function MarketingPage() {
                 />
               </div>
               <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
-                Inventory + maintenance for your boat
+                Inventory, maintenance & trip logging for your boat
               </h1>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Track required vs actual inventory, schedule maintenance, and keep an audit trail—all in one place. Built for boat owners, captains, and crews.
+                Track inventory and maintenance with search and custom order. Log trips and hours—inventory checks and maintenance stay tied to hours so nothing slips. Built for boat owners, captains, and crews.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Link

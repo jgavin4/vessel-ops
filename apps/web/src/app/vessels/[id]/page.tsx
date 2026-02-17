@@ -3210,7 +3210,7 @@ export default function VesselDetailPage() {
           </p>
           <Button
             variant="outline"
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/dashboard")}
             className="mt-4"
           >
             Back to Dashboard
@@ -3227,7 +3227,7 @@ export default function VesselDetailPage() {
           <p>Vessel not found</p>
           <Button
             variant="outline"
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/dashboard")}
             className="mt-4"
           >
             Back to Dashboard
@@ -3245,7 +3245,7 @@ export default function VesselDetailPage() {
     <div className="space-y-6">
       <div>
         <Link
-          href="/"
+          href="/dashboard"
           className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-block"
         >
           ← Back to Dashboard
