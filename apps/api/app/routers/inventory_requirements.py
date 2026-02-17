@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter
@@ -103,6 +104,9 @@ def create_requirement(
         .scalar()
     )
     next_order = (max_order or -1) + 1
+    consume_per_hour = (
+        Decimal(str(payload.consume_per_hour)) if payload.consume_per_hour is not None else None
+    )
     requirement = VesselInventoryRequirement(
         vessel_id=vessel.id,
         parent_group_id=payload.parent_group_id,
@@ -112,6 +116,9 @@ def create_requirement(
         critical=payload.critical,
         notes=payload.notes,
         sort_order=next_order,
+        current_quantity=payload.current_quantity if payload.current_quantity is not None else 0,
+        auto_consume_enabled=payload.auto_consume_enabled if payload.auto_consume_enabled is not None else False,
+        consume_per_hour=consume_per_hour,
     )
     db.add(requirement)
     db.commit()
@@ -198,6 +205,8 @@ def update_requirement(
         raise HTTPException(status_code=404, detail="Requirement not found")
 
     updates = payload.model_dump(exclude_unset=True)
+    if "consume_per_hour" in updates and updates["consume_per_hour"] is not None:
+        updates["consume_per_hour"] = Decimal(str(updates["consume_per_hour"]))
     
     # Validate parent_group_id if being updated
     if "parent_group_id" in updates and updates["parent_group_id"] is not None:

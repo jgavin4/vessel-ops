@@ -277,6 +277,58 @@ export function useApi() {
           token
         )
       ),
+    // Trips
+    getVesselTotalHours: (vesselId: number) =>
+      withAuth((token, orgId) =>
+        api.apiRequest<api.VesselTotalHours>(
+          `/api/vessels/${vesselId}/total-hours`,
+          {},
+          orgId,
+          token
+        )
+      ),
+    listTrips: (vesselId: number, limit?: number) =>
+      withAuth((token, orgId) =>
+        api.apiRequest<api.Trip[]>(
+          `/api/vessels/${vesselId}/trips${limit != null ? `?limit=${limit}` : ""}`,
+          {},
+          orgId,
+          token
+        )
+      ),
+    createTrip: (vesselId: number, data: api.TripCreate) =>
+      withAuth((token, orgId) =>
+        api.apiRequest<api.Trip>(
+          `/api/vessels/${vesselId}/trips`,
+          {
+            method: "POST",
+            body: JSON.stringify(data),
+          },
+          orgId,
+          token
+        )
+      ),
+    updateTrip: (vesselId: number, tripId: string, data: api.TripUpdate) =>
+      withAuth((token, orgId) =>
+        api.apiRequest<api.Trip>(
+          `/api/vessels/${vesselId}/trips/${tripId}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(data),
+          },
+          orgId,
+          token
+        )
+      ),
+    deleteTrip: (vesselId: number, tripId: string) =>
+      withAuth((token, orgId) =>
+        api.apiRequest<void>(
+          `/api/vessels/${vesselId}/trips/${tripId}`,
+          { method: "DELETE" },
+          orgId,
+          token
+        )
+      ),
     // Comments
     listVesselComments: (vesselId: number) =>
       withAuth((token, orgId) =>

@@ -3,10 +3,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
+from pydantic import field_serializer
 
 from app.models import InventoryCheckStatus
 from app.models import InventoryCheckLineCondition
@@ -57,6 +59,9 @@ class InventoryRequirementBase(BaseModel):
 
 class InventoryRequirementCreate(InventoryRequirementBase):
     parent_group_id: Optional[int] = None
+    current_quantity: Optional[int] = Field(default=0, ge=0)
+    auto_consume_enabled: Optional[bool] = False
+    consume_per_hour: Optional[float] = Field(default=None, ge=0)
 
 
 class InventoryRequirementUpdate(BaseModel):
@@ -66,6 +71,9 @@ class InventoryRequirementUpdate(BaseModel):
     critical: Optional[bool] = None
     notes: Optional[str] = None
     parent_group_id: Optional[int] = None
+    current_quantity: Optional[int] = Field(default=None, ge=0)
+    auto_consume_enabled: Optional[bool] = None
+    consume_per_hour: Optional[float] = Field(default=None, ge=0)
 
 
 class InventoryRequirementOut(InventoryRequirementBase):
@@ -73,6 +81,9 @@ class InventoryRequirementOut(InventoryRequirementBase):
     vessel_id: int
     parent_group_id: Optional[int] = None
     sort_order: Optional[int] = None
+    current_quantity: int = 0
+    auto_consume_enabled: bool = False
+    consume_per_hour: Optional[float] = None
     created_at: datetime
     updated_at: datetime
 
@@ -175,6 +186,7 @@ class MaintenanceTaskBase(BaseModel):
     description: Optional[str] = None
     cadence_type: MaintenanceCadenceType
     interval_days: Optional[int] = Field(default=None, ge=1)
+    interval_hours: Optional[float] = Field(default=None, ge=0)
     due_date: Optional[datetime] = None
     next_due_at: Optional[datetime] = None
     critical: bool = Field(default=False)
@@ -190,6 +202,7 @@ class MaintenanceTaskUpdate(BaseModel):
     description: Optional[str] = None
     cadence_type: Optional[MaintenanceCadenceType] = None
     interval_days: Optional[int] = Field(default=None, ge=1)
+    interval_hours: Optional[float] = Field(default=None, ge=0)
     due_date: Optional[datetime] = None
     next_due_at: Optional[datetime] = None
     critical: Optional[bool] = None
@@ -200,8 +213,16 @@ class MaintenanceTaskOut(MaintenanceTaskBase):
     id: int
     vessel_id: int
     sort_order: Optional[int] = None
+    last_completed_at: Optional[datetime] = None
+    last_completed_total_hours: Optional[float] = None
     created_at: datetime
     updated_at: datetime
+    # Computed (set by API when listing)
+    current_total_hours: Optional[float] = None
+    hours_since_last: Optional[float] = None
+    hours_remaining: Optional[float] = None
+    is_due_by_hours: Optional[bool] = None
+    is_due_by_date: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -371,6 +392,36 @@ class MeOut(BaseModel):
     memberships: list[OrgMembershipSummary]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# Trip Schemas
+class TripCreate(BaseModel):
+    hours: float = Field(gt=0, description="Trip hours (required, >0)")
+    logged_at: Optional[datetime] = None  # default now server-side if missing
+    note: Optional[str] = None
+
+
+class TripUpdate(BaseModel):
+    hours: Optional[float] = Field(default=None, gt=0)
+    logged_at: Optional[datetime] = None
+    note: Optional[str] = None
+
+
+class TripOut(BaseModel):
+    id: UUID | str  # uuid, serialized as string in JSON
+    vessel_id: int
+    logged_at: datetime
+    hours: float
+    note: Optional[str] = None
+    created_by_user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("id")
+    def serialize_id(self, value: UUID | str) -> str:
+        return str(value)
 
 
 # Billing Override Schemas

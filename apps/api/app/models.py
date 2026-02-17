@@ -1,20 +1,24 @@
 from __future__ import annotations
 
+import enum
+import uuid
+from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import DateTime
 from sqlalchemy import Enum
 from sqlalchemy import ForeignKey
-from sqlalchemy import Integer
 from sqlalchemy import Index
+from sqlalchemy import Integer
+from sqlalchemy import Numeric
 from sqlalchemy import String
 from sqlalchemy import Text
 from sqlalchemy import UniqueConstraint
 from sqlalchemy import func
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
-import enum
 
 from app.db import Base
 
@@ -174,6 +178,9 @@ class Vessel(Base):
     maintenance_tasks: Mapped[list["MaintenanceTask"]] = relationship(
         back_populates="vessel", cascade="all, delete-orphan"
     )
+    trips: Mapped[list["VesselTrip"]] = relationship(
+        back_populates="vessel", cascade="all, delete-orphan", order_by="VesselTrip.logged_at.desc()"
+    )
     comments: Mapped[list["VesselComment"]] = relationship(
         back_populates="vessel", cascade="all, delete-orphan", order_by="VesselComment.created_at.desc()"
     )
@@ -223,6 +230,9 @@ class VesselInventoryRequirement(Base):
     critical: Mapped[bool] = mapped_column(default=False, server_default="false")
     notes: Mapped[Optional[str]] = mapped_column(Text)
     sort_order: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    current_quantity: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    auto_consume_enabled: Mapped[bool] = mapped_column(default=False, server_default="false")
+    consume_per_hour: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 4), nullable=True)
     created_at: Mapped[DateTime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -237,6 +247,9 @@ class VesselInventoryRequirement(Base):
     parent_group: Mapped[Optional["InventoryGroup"]] = relationship(back_populates="requirements")
     check_lines: Mapped[list["InventoryCheckLine"]] = relationship(
         back_populates="requirement", cascade="all, delete-orphan"
+    )
+    adjustments: Mapped[list["InventoryAdjustment"]] = relationship(
+        back_populates="requirement", cascade="all, delete-orphan", order_by="InventoryAdjustment.created_at.desc()"
     )
 
 
@@ -305,6 +318,63 @@ class InventoryCheckLine(Base):
     requirement: Mapped[VesselInventoryRequirement] = relationship(back_populates="check_lines")
 
 
+class VesselTrip(Base):
+    __tablename__ = "vessel_trips"
+    __table_args__ = (Index("ix_vessel_trips_vessel_id", "vessel_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    vessel_id: Mapped[int] = mapped_column(ForeignKey("vessels.id"), nullable=False)
+    logged_at: Mapped[DateTime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    hours: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
+    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[DateTime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[DateTime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    vessel: Mapped[Vessel] = relationship(back_populates="trips")
+    created_by: Mapped[User] = relationship()
+    inventory_adjustments: Mapped[list["InventoryAdjustment"]] = relationship(
+        back_populates="reference_trip", cascade="all, delete-orphan"
+    )
+
+
+class InventoryAdjustment(Base):
+    __tablename__ = "inventory_adjustments"
+    __table_args__ = (
+        Index("ix_inventory_adjustments_requirement_id", "requirement_id"),
+        Index("ix_inventory_adjustments_reference_trip_id", "reference_trip_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    requirement_id: Mapped[int] = mapped_column(
+        ForeignKey("vessel_inventory_requirements.id"), nullable=False
+    )
+    reason: Mapped[str] = mapped_column(String(50), nullable=False)  # e.g. "trip", "manual"
+    reference_trip_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("vessel_trips.id"), nullable=True
+    )
+    delta: Mapped[int] = mapped_column(Integer, nullable=False)  # signed
+    before_qty: Mapped[int] = mapped_column(Integer, nullable=False)
+    after_qty: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[DateTime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    requirement: Mapped[VesselInventoryRequirement] = relationship(back_populates="adjustments")
+    reference_trip: Mapped[Optional[VesselTrip]] = relationship(back_populates="inventory_adjustments")
+    created_by: Mapped[User] = relationship()
+
+
 class MaintenanceTask(Base):
     __tablename__ = "maintenance_tasks"
     __table_args__ = (Index("ix_maintenance_tasks_vessel_id", "vessel_id"),)
@@ -317,6 +387,9 @@ class MaintenanceTask(Base):
         Enum(MaintenanceCadenceType), nullable=False
     )
     interval_days: Mapped[Optional[int]] = mapped_column(Integer)
+    interval_hours: Mapped[Optional[Decimal]] = mapped_column(Numeric(14, 4), nullable=True)
+    last_completed_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_completed_total_hours: Mapped[Optional[Decimal]] = mapped_column(Numeric(14, 4), nullable=True)
     due_date: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True))
     next_due_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True))
     critical: Mapped[bool] = mapped_column(default=False, server_default="false")

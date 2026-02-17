@@ -93,6 +93,9 @@ export type InventoryRequirement = {
   category: string | null;
   critical: boolean;
   notes: string | null;
+  current_quantity: number;
+  auto_consume_enabled: boolean;
+  consume_per_hour: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -113,6 +116,9 @@ export type InventoryRequirementUpdate = {
   critical?: boolean;
   notes?: string | null;
   parent_group_id?: number | null;
+  current_quantity?: number;
+  auto_consume_enabled?: boolean;
+  consume_per_hour?: number | null;
 };
 
 export type InventoryGroup = {
@@ -188,6 +194,7 @@ export type MaintenanceTask = {
   description: string | null;
   cadence_type: MaintenanceCadenceType;
   interval_days: number | null;
+  interval_hours: number | null;
   due_date: string | null;
   next_due_at: string | null;
   critical: boolean;
@@ -195,6 +202,12 @@ export type MaintenanceTask = {
   sort_order: number | null;
   created_at: string;
   updated_at: string;
+  // Computed by API when listing
+  current_total_hours?: number | null;
+  hours_since_last?: number | null;
+  hours_remaining?: number | null;
+  is_due_by_hours?: boolean | null;
+  is_due_by_date?: boolean | null;
 };
 
 export type MaintenanceTaskCreate = {
@@ -202,6 +215,7 @@ export type MaintenanceTaskCreate = {
   description?: string | null;
   cadence_type: MaintenanceCadenceType;
   interval_days?: number | null;
+  interval_hours?: number | null;
   due_date?: string | null;
   next_due_at?: string | null;
   critical?: boolean;
@@ -233,6 +247,34 @@ export type MaintenanceLog = {
 export type MaintenanceLogCreate = {
   performed_at?: string | null;
   notes?: string | null;
+};
+
+// Trips (trip hours)
+export type Trip = {
+  id: string;
+  vessel_id: number;
+  logged_at: string;
+  hours: number;
+  note: string | null;
+  created_by_user_id: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TripCreate = {
+  hours: number;
+  logged_at?: string | null;
+  note?: string | null;
+};
+
+export type TripUpdate = {
+  hours?: number;
+  logged_at?: string | null;
+  note?: string | null;
+};
+
+export type VesselTotalHours = {
+  total_hours: number;
 };
 
 export type VesselComment = {
@@ -497,6 +539,56 @@ export async function listMaintenanceLogs(
   return apiRequest<MaintenanceLog[]>(
     `/api/maintenance/tasks/${taskId}/logs`
   );
+}
+
+// Trips API
+export async function getVesselTotalHours(
+  vesselId: number
+): Promise<VesselTotalHours> {
+  return apiRequest<VesselTotalHours>(
+    `/api/vessels/${vesselId}/total-hours`
+  );
+}
+
+export async function listTrips(
+  vesselId: number,
+  limit?: number
+): Promise<Trip[]> {
+  const params = limit != null ? `?limit=${limit}` : "";
+  return apiRequest<Trip[]>(`/api/vessels/${vesselId}/trips${params}`);
+}
+
+export async function createTrip(
+  vesselId: number,
+  data: TripCreate
+): Promise<Trip> {
+  return apiRequest<Trip>(`/api/vessels/${vesselId}/trips`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateTrip(
+  vesselId: number,
+  tripId: string,
+  data: TripUpdate
+): Promise<Trip> {
+  return apiRequest<Trip>(
+    `/api/vessels/${vesselId}/trips/${tripId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }
+  );
+}
+
+export async function deleteTrip(
+  vesselId: number,
+  tripId: string
+): Promise<void> {
+  return apiRequest<void>(`/api/vessels/${vesselId}/trips/${tripId}`, {
+    method: "DELETE",
+  });
 }
 
 // Comments API
