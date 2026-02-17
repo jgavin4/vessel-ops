@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ImportDialog } from "@/components/import-dialog";
+import { LogTripModal } from "@/components/log-trip-modal";
 import Link from "next/link";
 
 function AddVesselDialog({
@@ -174,7 +175,13 @@ function AddVesselDialog({
   );
 }
 
-function VesselCard({ vessel }: { vessel: any }) {
+function VesselCard({
+  vessel,
+  onLogTrip,
+}: {
+  vessel: any;
+  onLogTrip: (vessel: any) => void;
+}) {
   const makeModelYear = [
     vessel.make,
     vessel.model,
@@ -194,12 +201,21 @@ function VesselCard({ vessel }: { vessel: any }) {
           <p className="text-sm text-muted-foreground">📍 {vessel.location}</p>
         )}
       </CardHeader>
-      <CardContent>
-        <Link href={`/vessels/${vessel.id}`}>
-          <Button variant="outline" className="w-full">
-            View
+      <CardContent className="flex flex-col gap-2">
+        <div className="flex gap-2">
+          <Link href={`/vessels/${vessel.id}`} className="flex-1">
+            <Button variant="outline" className="w-full">
+              View
+            </Button>
+          </Link>
+          <Button
+            variant="outline"
+            onClick={() => onLogTrip(vessel)}
+            className="shrink-0"
+          >
+            Log Trip
           </Button>
-        </Link>
+        </div>
       </CardContent>
     </Card>
   );
@@ -213,6 +229,7 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
   const [addVesselOpen, setAddVesselOpen] = useState(false);
   const [importVesselOpen, setImportVesselOpen] = useState(false);
+  const [logTripVessel, setLogTripVessel] = useState<{ id: number; name: string } | null>(null);
 
   const { data: me, isLoading: meLoading, error: meError } = useQuery({
     queryKey: ["me"],
@@ -405,7 +422,11 @@ export default function DashboardPage() {
       {vessels && vessels.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {vessels.map((vessel) => (
-            <VesselCard key={vessel.id} vessel={vessel} />
+            <VesselCard
+              key={vessel.id}
+              vessel={vessel}
+              onLogTrip={(v) => setLogTripVessel({ id: v.id, name: v.name })}
+            />
           ))}
         </div>
       ) : (
@@ -446,6 +467,15 @@ export default function DashboardPage() {
           setImportVesselOpen(false);
         }}
       />
+      {logTripVessel && (
+        <LogTripModal
+          open={!!logTripVessel}
+          onOpenChange={(open) => !open && setLogTripVessel(null)}
+          vesselId={logTripVessel.id}
+          vesselName={logTripVessel.name}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ["vessels", orgId] })}
+        />
+      )}
     </div>
   );
 }

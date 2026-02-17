@@ -14,6 +14,7 @@ import type {
   InventoryCheckLine,
   InventoryCheckLineCreate,
   MaintenanceLog,
+  Trip,
 } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ImportDialog } from "@/components/import-dialog";
+import { LogTripModal as LogTripModalDialog } from "@/components/log-trip-modal";
 import Link from "next/link";
 import { format } from "date-fns";
 import {
@@ -210,6 +212,83 @@ function SortableMaintenanceRow({
   );
 }
 
+function TripHoursCard({ vesselId }: { vesselId: number }) {
+  const api = useApi();
+  const [logTripOpen, setLogTripOpen] = useState(false);
+
+  const validVesselId = Number.isInteger(vesselId) && vesselId > 0;
+
+  const { data: totalHoursData } = useQuery({
+    queryKey: ["vessel-total-hours", vesselId],
+    queryFn: () => api.getVesselTotalHours(vesselId),
+    enabled: validVesselId,
+  });
+  const { data: trips, isLoading: tripsLoading } = useQuery({
+    queryKey: ["vessel-trips", vesselId],
+    queryFn: () => api.listTrips(vesselId, 3),
+    enabled: validVesselId,
+  });
+
+  const lastThree = trips?.slice(0, 3) ?? [];
+
+  if (!validVesselId) {
+    return null;
+  }
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-row items-center justify-between gap-4">
+            <div>
+              <CardTitle>Trip Hours</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Total hours:{" "}
+                <span className="font-semibold">
+                  {totalHoursData?.total_hours ?? "—"}
+                </span>
+              </p>
+            </div>
+            <Button onClick={() => setLogTripOpen(true)}>Log Trip</Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {tripsLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-8 bg-muted rounded animate-pulse" />
+              ))}
+            </div>
+          ) : lastThree.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No trips logged yet.</p>
+          ) : (
+            <ul className="text-sm space-y-1.5">
+              {lastThree.map((trip: Trip) => (
+                <li key={trip.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span className="text-muted-foreground">
+                    {format(new Date(trip.logged_at), "PP")}
+                  </span>
+                  <span className="font-medium">{trip.hours} hrs</span>
+                  {trip.note ? (
+                    <span className="text-muted-foreground truncate max-w-full" title={trip.note}>
+                      — {trip.note}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+      <LogTripModalDialog
+        open={logTripOpen}
+        onOpenChange={setLogTripOpen}
+        vesselId={vesselId}
+      />
+    </>
+  );
+}
+
 // Utility function to get user initials
 function getUserInitials(name?: string | null, email?: string | null): string {
   if (name) {
@@ -274,6 +353,7 @@ function OverviewTab({ vessel }: { vessel: any }) {
 
   return (
     <div className="space-y-6">
+      <TripHoursCard vesselId={vessel.id} />
       <Card>
         <CardHeader>
           <div className="flex justify-between items-start">
@@ -512,6 +592,28 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to delete requirement");
+    },
+  });
+
+  // Update only current_quantity on requirement (for auto_consume items; +/- then update stored quantity)
+  const updateRequirementQuantityMutation = useMutation({
+    mutationFn: ({
+      requirementId,
+      quantity,
+    }: {
+      requirementId: number;
+      quantity: number;
+    }) =>
+      api.updateInventoryRequirement(requirementId, {
+        current_quantity: quantity,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["inventory-requirements", vesselId],
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update quantity");
     },
   });
 
@@ -846,7 +948,10 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
 
   // Helper function to render requirement card
   const renderRequirementCard = (req: InventoryRequirement) => {
-    const currentQty = latestQuantities[req.id]?.qty ?? 0;
+    const currentQty =
+      req.auto_consume_enabled
+        ? (req.current_quantity ?? 0)
+        : (latestQuantities[req.id]?.qty ?? 0);
     const lastUpdated = latestQuantities[req.id]?.updatedAt;
     const isMissing = currentQty < req.required_quantity;
     return (
@@ -921,51 +1026,103 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
           </div>
           <div className="flex items-center gap-3 ml-4">
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  updateQuantityMutation.mutate({
-                    requirementId: req.id,
-                    quantity: Math.max(0, currentQty - 1),
-                  })
-                }
-                disabled={
-                  currentQty === 0 ||
-                  updateQuantityMutation.isPending
-                }
-                className="h-8 w-8 p-0"
-              >
-                −
-              </Button>
-              <Input
-                type="number"
-                value={currentQty}
-                onChange={(e) => {
-                  const value = parseInt(e.target.value) || 0;
-                  updateQuantityMutation.mutate({
-                    requirementId: req.id,
-                    quantity: value,
-                  });
-                }}
-                min="0"
-                className="w-20 text-center"
-                disabled={updateQuantityMutation.isPending}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  updateQuantityMutation.mutate({
-                    requirementId: req.id,
-                    quantity: currentQty + 1,
-                  })
-                }
-                disabled={updateQuantityMutation.isPending}
-                className="h-8 w-8 p-0"
-              >
-                +
-              </Button>
+              {req.auto_consume_enabled ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      updateRequirementQuantityMutation.mutate({
+                        requirementId: req.id,
+                        quantity: Math.max(0, currentQty - 1),
+                      })
+                    }
+                    disabled={
+                      currentQty === 0 ||
+                      updateRequirementQuantityMutation.isPending
+                    }
+                    className="h-8 w-8 p-0"
+                  >
+                    −
+                  </Button>
+                  <Input
+                    type="number"
+                    value={currentQty}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 0;
+                      updateRequirementQuantityMutation.mutate({
+                        requirementId: req.id,
+                        quantity: Math.max(0, value),
+                      });
+                    }}
+                    min="0"
+                    className="w-20 text-center"
+                    disabled={updateRequirementQuantityMutation.isPending}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      updateRequirementQuantityMutation.mutate({
+                        requirementId: req.id,
+                        quantity: currentQty + 1,
+                      })
+                    }
+                    disabled={updateRequirementQuantityMutation.isPending}
+                    className="h-8 w-8 p-0"
+                  >
+                    +
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      updateQuantityMutation.mutate({
+                        requirementId: req.id,
+                        quantity: Math.max(0, currentQty - 1),
+                      })
+                    }
+                    disabled={
+                      currentQty === 0 ||
+                      updateQuantityMutation.isPending
+                    }
+                    className="h-8 w-8 p-0"
+                  >
+                    −
+                  </Button>
+                  <Input
+                    type="number"
+                    value={currentQty}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 0;
+                      updateQuantityMutation.mutate({
+                        requirementId: req.id,
+                        quantity: value,
+                      });
+                    }}
+                    min="0"
+                    className="w-20 text-center"
+                    disabled={updateQuantityMutation.isPending}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      updateQuantityMutation.mutate({
+                        requirementId: req.id,
+                        quantity: currentQty + 1,
+                      })
+                    }
+                    disabled={updateQuantityMutation.isPending}
+                    className="h-8 w-8 p-0"
+                  >
+                    +
+                  </Button>
+                </>
+              )}
             </div>
             <Button
               variant="outline"
@@ -1309,6 +1466,9 @@ function RequirementModal({
     critical: false,
     notes: "",
     parent_group_id: null as number | null,
+    current_quantity: 0,
+    auto_consume_enabled: false,
+    consume_per_hour: "" as string | number,
   });
   const [errors, setErrors] = useState<{ item_name?: string }>({});
   const [showHistory, setShowHistory] = useState(false);
@@ -1334,6 +1494,9 @@ function RequirementModal({
         critical: requirement.critical,
         notes: requirement.notes || "",
         parent_group_id: requirement.parent_group_id,
+        current_quantity: requirement.current_quantity ?? 0,
+        auto_consume_enabled: requirement.auto_consume_enabled ?? false,
+        consume_per_hour: requirement.consume_per_hour ?? "",
       });
     } else {
       setFormData({
@@ -1343,6 +1506,9 @@ function RequirementModal({
         critical: false,
         notes: "",
         parent_group_id: null,
+        current_quantity: 0,
+        auto_consume_enabled: false,
+        consume_per_hour: "",
       });
     }
     setErrors({});
@@ -1355,6 +1521,10 @@ function RequirementModal({
       setErrors({ item_name: "Item name is required" });
       return;
     }
+    const consumePerHour =
+      formData.consume_per_hour === "" || formData.consume_per_hour == null
+        ? null
+        : Number(formData.consume_per_hour);
     onSave({
       item_name: formData.item_name,
       required_quantity: formData.required_quantity,
@@ -1362,6 +1532,12 @@ function RequirementModal({
       critical: formData.critical,
       notes: formData.notes || null,
       parent_group_id: formData.parent_group_id,
+      current_quantity: formData.current_quantity,
+      auto_consume_enabled: formData.auto_consume_enabled,
+      consume_per_hour:
+        consumePerHour != null && !Number.isNaN(consumePerHour)
+          ? consumePerHour
+          : null,
     });
   };
 
@@ -1456,6 +1632,62 @@ function RequirementModal({
                 Critical
               </label>
             </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Current quantity (for auto-consume)
+              </label>
+              <Input
+                type="number"
+                min="0"
+                value={formData.current_quantity}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    current_quantity: parseInt(e.target.value) || 0,
+                  })
+                }
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="auto_consume"
+                checked={formData.auto_consume_enabled}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    auto_consume_enabled: e.target.checked,
+                  })
+                }
+                className="rounded"
+              />
+              <label htmlFor="auto_consume" className="text-sm font-medium">
+                Auto-consume on trip
+              </label>
+            </div>
+            {formData.auto_consume_enabled && (
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Consume per hour
+                </label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.consume_per_hour}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      consume_per_hour: e.target.value,
+                    })
+                  }
+                  placeholder="e.g. 0.5"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  When a trip is logged, DockOps will decrement this item automatically by (trip hours × rate). Quantity is never set below zero.
+                </p>
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium mb-2 block">Notes</label>
               <Textarea
@@ -1957,15 +2189,22 @@ function MaintenanceTab({ vesselId }: { vesselId: number }) {
     });
   }, [tasks, searchQuery, filter, now, sevenDaysFromNow]);
 
-  const overdueCount = tasks?.filter(
-    (task) => task.next_due_at && new Date(task.next_due_at) < now
-  ).length || 0;
-  const dueSoonCount = tasks?.filter(
-    (task) =>
-      task.next_due_at &&
-      new Date(task.next_due_at) <= sevenDaysFromNow &&
-      new Date(task.next_due_at) >= now
-  ).length || 0;
+  const overdueCount =
+    tasks?.filter(
+      (task) =>
+        task.is_due_by_hours === true ||
+        (task.next_due_at && new Date(task.next_due_at) < now)
+    ).length || 0;
+  const dueSoonCount =
+    tasks?.filter(
+      (task) =>
+        (task.hours_remaining != null &&
+          task.hours_remaining > 0 &&
+          task.hours_remaining <= 7 * 24) ||
+        (task.next_due_at &&
+          new Date(task.next_due_at) <= sevenDaysFromNow &&
+          new Date(task.next_due_at) >= now)
+    ).length || 0;
 
   const createTaskMutation = useMutation({
     mutationFn: (payload: any) => api.createMaintenanceTask(vesselId, payload),
@@ -2088,10 +2327,20 @@ function MaintenanceTab({ vesselId }: { vesselId: number }) {
   });
 
   const getTaskStatus = (task: any) => {
-    if (!task.next_due_at) return { label: "No due date", variant: "outline" as const };
-    const dueDate = new Date(task.next_due_at);
-    if (dueDate < now) return { label: "Overdue", variant: "destructive" as const };
-    if (dueDate <= sevenDaysFromNow) return { label: "Due soon", variant: "secondary" as const };
+    const dueByHours = task.is_due_by_hours === true;
+    const dueByDate =
+      task.next_due_at && new Date(task.next_due_at) < now;
+    if (dueByHours || dueByDate)
+      return { label: "Overdue", variant: "destructive" as const };
+    if (task.hours_remaining != null && task.hours_remaining <= 7 * 24 && task.hours_remaining > 0)
+      return { label: "Due soon (hrs)", variant: "secondary" as const };
+    if (task.next_due_at) {
+      const dueDate = new Date(task.next_due_at);
+      if (dueDate <= sevenDaysFromNow && dueDate >= now)
+        return { label: "Due soon", variant: "secondary" as const };
+    }
+    if (!task.next_due_at && task.hours_remaining == null)
+      return { label: "No due date", variant: "outline" as const };
     return { label: "OK", variant: "outline" as const };
   };
 
@@ -2211,7 +2460,9 @@ function MaintenanceTab({ vesselId }: { vesselId: number }) {
                         const status = getTaskStatus(task);
                         const cadenceText =
                           task.cadence_type === "interval"
-                            ? `Every ${task.interval_days} days`
+                            ? task.interval_hours != null
+                              ? `Every ${task.interval_days ?? "?"} days / ${task.interval_hours} hrs`
+                              : `Every ${task.interval_days} days`
                             : task.due_date
                             ? `Due on ${format(new Date(task.due_date), "yyyy-MM-dd")}`
                             : "No cadence";
@@ -2233,9 +2484,18 @@ function MaintenanceTab({ vesselId }: { vesselId: number }) {
                             </td>
                             <td className="p-2">{cadenceText}</td>
                             <td className="p-2">
-                              {task.next_due_at
-                                ? format(new Date(task.next_due_at), "PPp")
-                                : "-"}
+                              {task.interval_hours != null &&
+                              task.hours_remaining != null ? (
+                                <span className={task.is_due_by_hours ? "text-destructive font-medium" : ""}>
+                                  {task.hours_remaining <= 0
+                                    ? `Overdue by ${Math.abs(task.hours_remaining).toFixed(0)} hrs`
+                                    : `${task.hours_remaining.toFixed(0)} hrs remaining`}
+                                </span>
+                              ) : task.next_due_at ? (
+                                format(new Date(task.next_due_at), "PPp")
+                              ) : (
+                                "-"
+                              )}
                             </td>
                             <td className="p-2">
                               {latestLogsMap[task.id] ? (
@@ -2482,6 +2742,7 @@ function TaskModal({
     description: "",
     cadence_type: "interval" as "interval" | "specific_date",
     interval_days: 90,
+    interval_hours: "" as string | number,
     due_date: "",
     critical: false,
     is_active: true,
@@ -2495,6 +2756,7 @@ function TaskModal({
         description: task.description || "",
         cadence_type: task.cadence_type,
         interval_days: task.interval_days || 90,
+        interval_hours: task.interval_hours ?? "",
         due_date: task.due_date
           ? format(new Date(task.due_date), "yyyy-MM-dd")
           : "",
@@ -2507,6 +2769,7 @@ function TaskModal({
         description: "",
         cadence_type: "interval",
         interval_days: 90,
+        interval_hours: "",
         due_date: "",
         critical: false,
         is_active: true,
@@ -2532,12 +2795,18 @@ function TaskModal({
       return;
     }
 
+    const intervalHours =
+      formData.interval_hours === "" || formData.interval_hours == null
+        ? null
+        : Number(formData.interval_hours);
     onSave({
       name: formData.name,
       description: formData.description || null,
       cadence_type: formData.cadence_type,
       interval_days:
         formData.cadence_type === "interval" ? formData.interval_days : null,
+      interval_hours:
+        intervalHours != null && !Number.isNaN(intervalHours) ? intervalHours : null,
       due_date:
         formData.cadence_type === "specific_date"
           ? new Date(formData.due_date).toISOString()
@@ -2601,28 +2870,51 @@ function TaskModal({
               </Select>
             </div>
             {formData.cadence_type === "interval" ? (
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Interval Days *
-                </label>
-                <Input
-                  type="number"
-                  value={formData.interval_days}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      interval_days: parseInt(e.target.value) || 0,
-                    })
-                  }
-                  min="1"
-                  required
-                />
-                {errors.interval_days && (
-                  <p className="text-sm text-destructive mt-1">
-                    {errors.interval_days}
+              <>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Interval Days *
+                  </label>
+                  <Input
+                    type="number"
+                    value={formData.interval_days}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        interval_days: parseInt(e.target.value) || 0,
+                      })
+                    }
+                    min="1"
+                    required
+                  />
+                  {errors.interval_days && (
+                    <p className="text-sm text-destructive mt-1">
+                      {errors.interval_days}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Interval (hours) – optional
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={formData.interval_hours}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        interval_hours: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. 500 (due every 500 engine hours)"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Task is also due when vessel reaches this many hours since last completion.
                   </p>
-                )}
-              </div>
+                </div>
+              </>
             ) : (
               <div>
                 <label className="text-sm font-medium mb-2 block">

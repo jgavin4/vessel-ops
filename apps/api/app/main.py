@@ -7,6 +7,7 @@ from app.routers.inventory_groups import router as inventory_groups_router
 from app.routers.inventory_requirements import router as inventory_requirements_router
 from app.routers.maintenance import router as maintenance_router
 from app.routers.orgs import router as orgs_router
+from app.routers.trips import router as trips_router
 from app.routers.vessels import router as vessels_router
 from app.routers.imports import router as imports_router
 from app.routers.billing import router as billing_router
@@ -29,6 +30,7 @@ app.add_middleware(
 
 app.include_router(orgs_router)
 app.include_router(vessels_router)
+app.include_router(trips_router)
 app.include_router(inventory_groups_router)
 app.include_router(inventory_requirements_router)
 app.include_router(inventory_checks_router)

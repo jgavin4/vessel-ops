@@ -1,6 +1,7 @@
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
+from decimal import Decimal
 
 from fastapi import APIRouter
 from fastapi import Depends
@@ -25,6 +26,7 @@ from app.schemas import MaintenanceLogOut
 from app.schemas import MaintenanceTaskCreate
 from app.schemas import MaintenanceTaskOut
 from app.schemas import MaintenanceTaskUpdate
+from app.services.vessel_hours import get_vessel_total_hours
 
 router = APIRouter(tags=["maintenance"])
 
@@ -49,13 +51,43 @@ def verify_vessel_access(
     return vessel
 
 
+def _enrich_task_with_due_fields(
+    task: MaintenanceTask,
+    current_total_hours: Decimal,
+) -> None:
+    """Set computed due-by-hours/date fields on task for API response."""
+    setattr(task, "current_total_hours", float(current_total_hours))
+    # When never completed, treat as last completed at 0 hours so "hours remaining" = interval - current
+    last_hours = (
+        task.last_completed_total_hours
+        if task.last_completed_total_hours is not None
+        else Decimal("0")
+    )
+    if task.interval_hours is not None:
+        hours_since = float(current_total_hours) - float(last_hours)
+        setattr(task, "hours_since_last", hours_since)
+        interval_h = float(task.interval_hours)
+        remaining = interval_h - hours_since
+        setattr(task, "hours_remaining", remaining)
+        setattr(task, "is_due_by_hours", remaining <= 0)
+    else:
+        setattr(task, "hours_since_last", None)
+        setattr(task, "hours_remaining", None)
+        setattr(task, "is_due_by_hours", None)
+    # Date-based due
+    if task.next_due_at is not None:
+        setattr(task, "is_due_by_date", datetime.now(timezone.utc) >= task.next_due_at)
+    else:
+        setattr(task, "is_due_by_date", None)
+
+
 @router.get("/api/vessels/{vessel_id}/maintenance/tasks", response_model=list[MaintenanceTaskOut])
 def list_tasks(
     vessel_id: int = Path(ge=1),
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_current_auth),
 ) -> list[MaintenanceTask]:
-    """List all maintenance tasks for a vessel."""
+    """List all maintenance tasks for a vessel with computed due-by-hours/date fields."""
     verify_vessel_access(vessel_id, db, auth)
     tasks = (
         db.execute(
@@ -69,6 +101,9 @@ def list_tasks(
         .scalars()
         .all()
     )
+    current_total_hours = get_vessel_total_hours(db, vessel_id)
+    for task in tasks:
+        _enrich_task_with_due_fields(task, current_total_hours)
     return tasks
 
 
@@ -214,6 +249,8 @@ def update_task(
             if not updates.get("next_due_at"):
                 updates["next_due_at"] = updates.get("due_date") or task.due_date
 
+    if "interval_hours" in updates and updates["interval_hours"] is not None:
+        updates["interval_hours"] = Decimal(str(updates["interval_hours"]))
     for field, value in updates.items():
         setattr(task, field, value)
 
@@ -252,7 +289,10 @@ def create_log(
     )
     db.add(log)
 
-    # Update next_due_at if task uses interval cadence
+    # Persist completion snapshot for due-by-hours and date
+    task.last_completed_at = performed_at
+    task.last_completed_total_hours = get_vessel_total_hours(db, task.vessel_id)
+    # Update next_due_at if task uses interval (days) cadence
     if task.cadence_type == MaintenanceCadenceType.INTERVAL and task.interval_days:
         task.next_due_at = performed_at + timedelta(days=task.interval_days)
 

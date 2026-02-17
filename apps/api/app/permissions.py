@@ -41,3 +41,8 @@ def can_create_maintenance_logs(auth: AuthContext) -> bool:
 def can_create_comments(auth: AuthContext) -> bool:
     """Check if user can create comments."""
     return True  # All roles can create comments
+
+
+def can_log_trips(auth: AuthContext) -> bool:
+    """Check if user can log or edit trips."""
+    return auth.role in [OrgRole.ADMIN, OrgRole.MANAGER]
