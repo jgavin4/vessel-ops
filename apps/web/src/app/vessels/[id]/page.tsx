@@ -2460,9 +2460,9 @@ function MaintenanceTab({ vesselId }: { vesselId: number }) {
                         const status = getTaskStatus(task);
                         const cadenceText =
                           task.cadence_type === "interval"
-                            ? task.interval_hours != null
-                              ? `Every ${task.interval_days ?? "?"} days / ${task.interval_hours} hrs`
-                              : `Every ${task.interval_days} days`
+                            ? `Every ${task.interval_days ?? "?"} days`
+                            : task.cadence_type === "interval_hours"
+                            ? `Every ${task.interval_hours ?? "?"} trip hrs`
                             : task.due_date
                             ? `Due on ${format(new Date(task.due_date), "yyyy-MM-dd")}`
                             : "No cadence";
@@ -2864,11 +2864,12 @@ function TaskModal({
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    cadence_type: e.target.value as "interval" | "specific_date",
+                    cadence_type: e.target.value as "interval" | "interval_hours" | "specific_date",
                   })
                 }
               >
-                <option value="interval">Interval</option>
+                <option value="interval">Interval (calendar days)</option>
+                <option value="interval_hours">Interval (trip hours)</option>
                 <option value="specific_date">Specific Date</option>
               </Select>
             </div>
@@ -2898,7 +2899,7 @@ function TaskModal({
             ) : formData.cadence_type === "interval_hours" ? (
               <div>
                 <label className="text-sm font-medium mb-2 block">
-                  Interval Hours *
+                  Trip hours *
                 </label>
                 <Input
                   type="number"
@@ -2912,11 +2913,11 @@ function TaskModal({
                     });
                     if (errors.interval_hours) setErrors({ ...errors, interval_hours: "" });
                   }}
-                  placeholder="e.g. 500 (due every 500 engine hours)"
+                  placeholder="e.g. 500 (due every 500 hours logged on trips)"
                   required
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Task is due when vessel reaches this many hours since last completion.
+                  Based on hours logged on trips for this vessel, not calendar time. Task is due when total trip hours since last completion reaches this value.
                 </p>
                 {errors.interval_hours && (
                   <p className="text-sm text-destructive mt-1">
