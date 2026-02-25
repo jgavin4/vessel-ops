@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 
 export default function AdminPage() {
-  const { isSignedIn } = useUser();
+  const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
   const { orgId } = useOrg();
   const api = useApi();
@@ -34,9 +34,9 @@ export default function AdminPage() {
   const [inviteRole, setInviteRole] = useState<"ADMIN" | "MANAGER" | "TECH">("TECH");
 
   const { data: members, isLoading: membersLoading } = useQuery({
-    queryKey: ["org-members", orgId],
+    queryKey: ["org-members", orgId, isLoaded, isSignedIn],
     queryFn: () => api.listOrgMembers(orgId!),
-    enabled: !!orgId && isSignedIn === true,
+    enabled: isLoaded === true && isSignedIn === true && !!orgId,
   });
 
 
@@ -82,6 +82,17 @@ export default function AdminPage() {
     },
   });
 
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <p className="text-center">Loading...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!isSignedIn) {
     router.push("/");

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,7 +17,7 @@ const BASE_PRICE_DISPLAY = 10;
 const PACK_PRICE_DISPLAY = 5;
 
 export default function AdminBillingPage() {
-  const { isSignedIn } = useUser();
+  const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const api = useApi();
@@ -26,15 +26,15 @@ export default function AdminBillingPage() {
   const [packQuantity, setPackQuantity] = useState(0);
 
   const { data: me } = useQuery({
-    queryKey: ["me"],
+    queryKey: ["me", isLoaded, isSignedIn],
     queryFn: () => api.getMe(),
-    enabled: isSignedIn === true,
+    enabled: isLoaded === true && isSignedIn === true,
   });
 
   const { data: billing, isLoading: billingLoading } = useQuery({
-    queryKey: ["billing-status"],
+    queryKey: ["billing-status", orgId, isLoaded, isSignedIn],
     queryFn: () => api.getBillingStatus(),
-    enabled: isSignedIn === true && orgId !== null,
+    enabled: isLoaded === true && isSignedIn === true && orgId !== null,
   });
 
   useEffect(() => {
@@ -86,6 +86,18 @@ export default function AdminBillingPage() {
 
   const currentMembership = me?.memberships?.find((m) => m.org_id === orgId);
   const isAdmin = currentMembership?.role === "ADMIN";
+
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <p className="text-center">Loading...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!isSignedIn) {
     router.push("/");

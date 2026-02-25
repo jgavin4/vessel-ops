@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { useApi } from "@/hooks/use-api";
 import type { VesselUpdate, InventoryGroup, InventoryGroupCreate, InventoryGroupUpdate } from "@/lib/api";
@@ -213,20 +214,22 @@ function SortableMaintenanceRow({
 }
 
 function TripHoursCard({ vesselId }: { vesselId: number }) {
+  const { isLoaded, isSignedIn } = useAuth();
   const api = useApi();
   const [logTripOpen, setLogTripOpen] = useState(false);
 
   const validVesselId = Number.isInteger(vesselId) && vesselId > 0;
+  const canFetch = isLoaded === true && isSignedIn === true && validVesselId;
 
   const { data: totalHoursData } = useQuery({
-    queryKey: ["vessel-total-hours", vesselId],
+    queryKey: ["vessel-total-hours", vesselId, isLoaded, isSignedIn],
     queryFn: () => api.getVesselTotalHours(vesselId),
-    enabled: validVesselId,
+    enabled: canFetch,
   });
   const { data: trips, isLoading: tripsLoading } = useQuery({
-    queryKey: ["vessel-trips", vesselId],
+    queryKey: ["vessel-trips", vesselId, isLoaded, isSignedIn],
     queryFn: () => api.listTrips(vesselId, 3),
-    enabled: validVesselId,
+    enabled: canFetch,
   });
 
   const lastThree = trips?.slice(0, 3) ?? [];
@@ -467,6 +470,7 @@ function OverviewTab({ vessel }: { vessel: any }) {
 }
 
 function InventoryTab({ vesselId }: { vesselId: number }) {
+  const { isLoaded, isSignedIn } = useAuth();
   const api = useApi();
   const queryClient = useQueryClient();
   const [requirementModalOpen, setRequirementModalOpen] = useState(false);
@@ -482,35 +486,39 @@ function InventoryTab({ vesselId }: { vesselId: number }) {
   const [deleteGroupId, setDeleteGroupId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const canFetch = isLoaded === true && isSignedIn === true && !!vesselId;
+
   const { data: requirements, isLoading: requirementsLoading } = useQuery({
-    queryKey: ["inventory-requirements", vesselId],
+    queryKey: ["inventory-requirements", vesselId, isLoaded, isSignedIn],
     queryFn: () => api.listInventoryRequirements(vesselId),
+    enabled: canFetch,
   });
 
   const { data: groups, isLoading: groupsLoading } = useQuery({
-    queryKey: ["inventory-groups", vesselId],
+    queryKey: ["inventory-groups", vesselId, isLoaded, isSignedIn],
     queryFn: () => api.listInventoryGroups(vesselId),
-    enabled: !!vesselId,
+    enabled: canFetch,
   });
 
   const { data: checks } = useQuery({
-    queryKey: ["inventory-checks", vesselId],
+    queryKey: ["inventory-checks", vesselId, isLoaded, isSignedIn],
     queryFn: () => api.listInventoryChecks(vesselId),
+    enabled: canFetch,
   });
 
   // Get in-progress check or create one
   const { data: inProgressCheck } = useQuery({
-    queryKey: ["inventory-check", inProgressCheckId],
+    queryKey: ["inventory-check", inProgressCheckId, isLoaded, isSignedIn],
     queryFn: () => api.getInventoryCheck(inProgressCheckId!),
-    enabled: !!inProgressCheckId,
+    enabled: canFetch && !!inProgressCheckId,
   });
 
   // Get latest submitted check for historical quantities
   const latestSubmittedCheckId = checks?.find((c) => c.status === "submitted")?.id;
   const { data: latestSubmittedCheck } = useQuery({
-    queryKey: ["inventory-check", latestSubmittedCheckId],
+    queryKey: ["inventory-check", latestSubmittedCheckId, isLoaded, isSignedIn],
     queryFn: () => api.getInventoryCheck(latestSubmittedCheckId!),
-    enabled: !!latestSubmittedCheckId && !inProgressCheckId,
+    enabled: canFetch && !!latestSubmittedCheckId && !inProgressCheckId,
   });
 
   useEffect(() => {
@@ -1458,6 +1466,7 @@ function RequirementModal({
   isSaving: boolean;
   vesselId: number;
 }) {
+  const { isLoaded, isSignedIn } = useAuth();
   const api = useApi();
   const [formData, setFormData] = useState({
     item_name: "",
@@ -1473,16 +1482,18 @@ function RequirementModal({
   const [errors, setErrors] = useState<{ item_name?: string }>({});
   const [showHistory, setShowHistory] = useState(false);
 
+  const canFetch = isLoaded === true && isSignedIn === true && !!vesselId;
+
   const { data: groups } = useQuery({
-    queryKey: ["inventory-groups", vesselId],
+    queryKey: ["inventory-groups", vesselId, isLoaded, isSignedIn],
     queryFn: () => api.listInventoryGroups(vesselId),
-    enabled: !!vesselId,
+    enabled: canFetch,
   });
 
   const { data: history, isLoading: historyLoading } = useQuery<InventoryCheckLine[]>({
-    queryKey: ["requirement-history", requirement?.id],
+    queryKey: ["requirement-history", requirement?.id, isLoaded, isSignedIn],
     queryFn: () => api.getRequirementHistory(requirement!.id),
-    enabled: !!requirement && showHistory,
+    enabled: canFetch && !!requirement && showHistory,
   });
 
   useEffect(() => {
@@ -2126,6 +2137,7 @@ function InventoryCheckView({
 }
 
 function MaintenanceTab({ vesselId }: { vesselId: number }) {
+  const { isLoaded, isSignedIn } = useAuth();
   const api = useApi();
   const queryClient = useQueryClient();
   const [taskModalOpen, setTaskModalOpen] = useState(false);
@@ -2137,18 +2149,21 @@ function MaintenanceTab({ vesselId }: { vesselId: number }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [importTaskOpen, setImportTaskOpen] = useState(false);
 
+  const canFetch = isLoaded === true && isSignedIn === true && !!vesselId;
+
   const { data: tasks, isLoading: tasksLoading } = useQuery({
-    queryKey: ["maintenance-tasks", vesselId],
+    queryKey: ["maintenance-tasks", vesselId, isLoaded, isSignedIn],
     queryFn: () => api.listMaintenanceTasks(vesselId),
+    enabled: canFetch,
   });
 
   // Fetch latest log for each task to show last completion date
   const taskIds = React.useMemo(() => tasks?.map((t) => t.id) || [], [tasks]);
   const logQueries = useQueries({
     queries: taskIds.map((taskId) => ({
-      queryKey: ["maintenance-logs", taskId],
+      queryKey: ["maintenance-logs", taskId, isLoaded, isSignedIn],
       queryFn: () => api.listMaintenanceLogs(taskId),
-      enabled: !!taskId && taskIds.length > 0,
+      enabled: canFetch && !!taskId && taskIds.length > 0,
     })),
   });
 
@@ -3082,13 +3097,17 @@ function LogModal({
 }
 
 function CommentsTab({ vesselId }: { vesselId: number }) {
+  const { isLoaded, isSignedIn } = useAuth();
   const api = useApi();
   const queryClient = useQueryClient();
   const [commentText, setCommentText] = useState("");
 
+  const canFetch = isLoaded === true && isSignedIn === true && !!vesselId;
+
   const { data: comments, isLoading: commentsLoading } = useQuery({
-    queryKey: ["vessel-comments", vesselId],
+    queryKey: ["vessel-comments", vesselId, isLoaded, isSignedIn],
     queryFn: () => api.listVesselComments(vesselId),
+    enabled: canFetch,
   });
 
   const createCommentMutation = useMutation({
@@ -3185,10 +3204,14 @@ export default function VesselDetailPage() {
   const vesselId = parseInt(params.id as string);
   const [activeTab, setActiveTab] = useState("overview");
 
+  const { isLoaded, isSignedIn } = useAuth();
+  const vesselIdValid = !!vesselId && !isNaN(vesselId);
+  const canFetchVessel = isLoaded === true && isSignedIn === true && vesselIdValid;
+
   const { data: vessel, isLoading, error } = useQuery({
-    queryKey: ["vessels", vesselId],
+    queryKey: ["vessels", vesselId, isLoaded, isSignedIn],
     queryFn: () => api.getVessel(vesselId),
-    enabled: !!vesselId && !isNaN(vesselId),
+    enabled: canFetchVessel,
   });
 
   if (isLoading) {

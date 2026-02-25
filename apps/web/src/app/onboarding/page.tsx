@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 
 export default function OnboardingPage() {
-  const { isSignedIn } = useUser();
+  const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
   const api = useApi();
   const { setOrgId } = useOrg();
@@ -32,9 +32,9 @@ export default function OnboardingPage() {
   const [pendingOrgName, setPendingOrgName] = useState("");
 
   const { data: me, isLoading: meLoading } = useQuery({
-    queryKey: ["me"],
+    queryKey: ["me", isLoaded, isSignedIn],
     queryFn: () => api.getMe(),
-    enabled: isSignedIn === true,
+    enabled: isLoaded === true && isSignedIn === true,
   });
 
   const createOrgRequestMutation = useMutation({
@@ -88,6 +88,18 @@ export default function OnboardingPage() {
 
   // Note: We allow users to access onboarding even if they have orgs
   // so they can create or join additional organizations
+
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <p className="text-center">Loading...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!isSignedIn) {
     return (

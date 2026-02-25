@@ -232,9 +232,9 @@ export default function DashboardPage() {
   const [logTripVessel, setLogTripVessel] = useState<{ id: number; name: string } | null>(null);
 
   const { data: me, isLoading: meLoading, error: meError } = useQuery({
-    queryKey: ["me"],
+    queryKey: ["me", isLoaded, isSignedIn],
     queryFn: () => api.getMe(),
-    enabled: isSignedIn === true,
+    enabled: isLoaded === true && isSignedIn === true,
     retry: 1,
   });
 
@@ -249,15 +249,15 @@ export default function DashboardPage() {
   }, [isLoaded, isSignedIn, me, router]);
 
   const { data: vessels, isLoading, error } = useQuery({
-    queryKey: ["vessels", orgId],
+    queryKey: ["vessels", orgId, isLoaded, isSignedIn],
     queryFn: () => api.listVessels(),
-    enabled: !!orgId && isSignedIn === true,
+    enabled: isLoaded === true && isSignedIn === true && !!orgId,
   });
 
   const { data: billing } = useQuery({
-    queryKey: ["billing-status"],
+    queryKey: ["billing-status", orgId, isLoaded, isSignedIn],
     queryFn: () => api.getBillingStatus(),
-    enabled: !!orgId && isSignedIn === true,
+    enabled: isLoaded === true && isSignedIn === true && !!orgId,
   });
 
   // Use effective limit (from entitlement; respects override)

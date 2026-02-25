@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useUser, SignInButton, UserButton } from "@clerk/nextjs";
+import { useAuth, useUser, SignInButton, UserButton } from "@clerk/nextjs";
 import { useOrg } from "@/contexts/org-context";
 import { useQuery } from "@tanstack/react-query";
 import { useApi } from "@/hooks/use-api";
@@ -14,16 +14,17 @@ import { Sheet, SheetHeader, SheetTitle, SheetContent } from "@/components/ui/sh
 
 export function Header() {
   const pathname = usePathname();
-  const { isSignedIn, user } = useUser();
+  const { isLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
   const { orgId, setOrgId } = useOrg();
   const api = useApi();
 
   const isPublicLanding = pathname === "/";
 
   const { data: me } = useQuery({
-    queryKey: ["me"],
+    queryKey: ["me", isLoaded, isSignedIn],
     queryFn: () => api.getMe(),
-    enabled: isSignedIn === true,
+    enabled: isLoaded === true && isSignedIn === true,
   });
 
   const activeMemberships = React.useMemo(() => {

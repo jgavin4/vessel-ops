@@ -3,6 +3,68 @@
 // Production: https://api.dock-ops.com
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
+export type GetTokenFn = (options?: { skipCache?: boolean }) => Promise<string | null>;
+
+/**
+ * Shared authed fetch for backend API: gets Clerk JWT via getToken(), attaches
+ * Authorization: Bearer <token>, uses cache: "no-store", and retries once on 401
+ * with getToken({ skipCache: true }).
+ */
+export async function authedFetch<T>(
+  getToken: GetTokenFn,
+  endpoint: string,
+  options: RequestInit = {},
+  orgId?: string | number | null
+): Promise<T> {
+  const url = `${API_BASE_URL}${endpoint}`;
+  const isFormData = options.body instanceof FormData;
+
+  const doFetch = async (token: string): Promise<Response> => {
+    const headers: Record<string, string> = {
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
+      ...(options.headers as Record<string, string>),
+    };
+    if (orgId) headers["X-Org-Id"] = String(orgId);
+    headers["Authorization"] = `Bearer ${token}`;
+
+    return fetch(url, {
+      ...options,
+      headers: headers as HeadersInit,
+      cache: "no-store",
+    });
+  };
+
+  const handleResponse = async (response: Response): Promise<T> => {
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.detail || errorMessage;
+      } catch {
+        errorMessage = errorText || errorMessage;
+      }
+      const error = new Error(errorMessage) as Error & { response?: { status: number; statusText: string } };
+      error.response = { status: response.status, statusText: response.statusText };
+      throw error;
+    }
+    if (response.status === 204) return undefined as T;
+    return response.json();
+  };
+
+  let token = await getToken();
+  if (!token) throw new Error("Not authenticated");
+
+  let response = await doFetch(token);
+  if (response.status === 401) {
+    token = await getToken({ skipCache: true });
+    if (token) {
+      response = await doFetch(token);
+    }
+  }
+  return handleResponse(response);
+}
+
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {},
@@ -14,20 +76,21 @@ export async function apiRequest<T>(
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
-  
+
   // Add org ID header if provided
   if (orgId) {
     headers["X-Org-Id"] = String(orgId);
   }
-  
+
   // Add auth token if provided
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-  
+
   const response = await fetch(url, {
     ...options,
     headers: headers as HeadersInit,
+    cache: "no-store",
   });
 
   if (!response.ok) {

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -23,7 +23,7 @@ import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
 
 export default function SuperAdminOrgsPage() {
-  const { isSignedIn } = useUser();
+  const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
   const api = useApi();
   const queryClient = useQueryClient();
@@ -36,16 +36,18 @@ export default function SuperAdminOrgsPage() {
   const [reason, setReason] = useState("");
 
   const { data: me, isLoading: meLoading } = useQuery({
-    queryKey: ["me"],
+    queryKey: ["me", isLoaded, isSignedIn],
     queryFn: () => api.getMe(),
-    enabled: isSignedIn === true,
+    enabled: isLoaded === true && isSignedIn === true,
     retry: 1,
   });
 
+  const canFetchAdmin = isLoaded === true && isSignedIn === true && me?.user.is_super_admin === true;
+
   const { data: orgs, isLoading: orgsLoading } = useQuery({
-    queryKey: ["search-orgs", searchQuery],
+    queryKey: ["search-orgs", searchQuery, isLoaded, isSignedIn, me?.user.is_super_admin],
     queryFn: () => api.searchOrgs(searchQuery || undefined),
-    enabled: isSignedIn === true && me?.user.is_super_admin === true,
+    enabled: canFetchAdmin,
   });
 
   const updateBillingMutation = useMutation({
@@ -110,6 +112,18 @@ export default function SuperAdminOrgsPage() {
       ...updateData,
     });
   };
+
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <p className="text-center">Loading...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!isSignedIn) {
     router.push("/");

@@ -5,491 +5,336 @@ import { useOrg } from "@/contexts/org-context";
 import * as api from "@/lib/api";
 
 /**
- * Hook that provides API functions with auth token and org context automatically injected.
+ * Hook that provides API functions using authedFetch: Clerk JWT via getToken(),
+ * Authorization Bearer, cache: no-store, and optional 401 retry.
  */
 export function useApi() {
   const { getToken } = useAuth();
   const { orgId } = useOrg();
 
-  const withAuth = async <T>(
-    fn: (token: string, orgId: number | null) => Promise<T>
-  ): Promise<T> => {
-    const token = await getToken();
-    if (!token) {
-      throw new Error("Not authenticated");
-    }
-    return fn(token, orgId);
-  };
-
   return {
     // Vessels
     listVessels: () =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.Vessel[]>("/api/vessels", {}, orgId, token)
-      ),
+      api.authedFetch<api.Vessel[]>(getToken, "/api/vessels", {}, orgId),
     getVessel: (id: number) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.Vessel>(`/api/vessels/${id}`, {}, orgId, token)
-      ),
+      api.authedFetch<api.Vessel>(getToken, `/api/vessels/${id}`, {}, orgId),
     createVessel: (data: api.VesselCreate) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.Vessel>("/api/vessels", {
-          method: "POST",
-          body: JSON.stringify(data),
-        }, orgId, token)
-      ),
+      api.authedFetch<api.Vessel>(getToken, "/api/vessels", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }, orgId),
     updateVessel: (id: number, data: api.VesselUpdate) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.Vessel>(`/api/vessels/${id}`, {
-          method: "PATCH",
-          body: JSON.stringify(data),
-        }, orgId, token)
-      ),
+      api.authedFetch<api.Vessel>(getToken, `/api/vessels/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }, orgId),
     // Inventory
     listInventoryRequirements: (vesselId: number) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.InventoryRequirement[]>(
-          `/api/vessels/${vesselId}/inventory/requirements`,
-          {},
-          orgId,
-          token
-        )
+      api.authedFetch<api.InventoryRequirement[]>(
+        getToken,
+        `/api/vessels/${vesselId}/inventory/requirements`,
+        {},
+        orgId
       ),
     createInventoryRequirement: (vesselId: number, data: api.InventoryRequirementCreate) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.InventoryRequirement>(
-          `/api/vessels/${vesselId}/inventory/requirements`,
-          {
-            method: "POST",
-            body: JSON.stringify(data),
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<api.InventoryRequirement>(
+        getToken,
+        `/api/vessels/${vesselId}/inventory/requirements`,
+        { method: "POST", body: JSON.stringify(data) },
+        orgId
       ),
     updateInventoryRequirement: (id: number, data: api.InventoryRequirementUpdate) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.InventoryRequirement>(
-          `/api/inventory/requirements/${id}`,
-          {
-            method: "PATCH",
-            body: JSON.stringify(data),
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<api.InventoryRequirement>(
+        getToken,
+        `/api/inventory/requirements/${id}`,
+        { method: "PATCH", body: JSON.stringify(data) },
+        orgId
       ),
     deleteInventoryRequirement: (id: number) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<void>(`/api/inventory/requirements/${id}`, {
-          method: "DELETE",
-        }, orgId, token)
-      ),
+      api.authedFetch<void>(getToken, `/api/inventory/requirements/${id}`, { method: "DELETE" }, orgId),
     getRequirementHistory: (requirementId: number) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.InventoryCheckLine[]>(
-          `/api/inventory/requirements/${requirementId}/history`,
-          {},
-          orgId,
-          token
-        )
+      api.authedFetch<api.InventoryCheckLine[]>(
+        getToken,
+        `/api/inventory/requirements/${requirementId}/history`,
+        {},
+        orgId
       ),
     // Inventory Groups
     listInventoryGroups: (vesselId: number) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.InventoryGroup[]>(
-          `/api/vessels/${vesselId}/inventory/groups`,
-          {},
-          orgId,
-          token
-        )
+      api.authedFetch<api.InventoryGroup[]>(
+        getToken,
+        `/api/vessels/${vesselId}/inventory/groups`,
+        {},
+        orgId
       ),
     createInventoryGroup: (vesselId: number, data: api.InventoryGroupCreate) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.InventoryGroup>(
-          `/api/vessels/${vesselId}/inventory/groups`,
-          {
-            method: "POST",
-            body: JSON.stringify(data),
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<api.InventoryGroup>(
+        getToken,
+        `/api/vessels/${vesselId}/inventory/groups`,
+        { method: "POST", body: JSON.stringify(data) },
+        orgId
       ),
     updateInventoryGroup: (id: number, data: api.InventoryGroupUpdate) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.InventoryGroup>(
-          `/api/inventory/groups/${id}`,
-          {
-            method: "PATCH",
-            body: JSON.stringify(data),
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<api.InventoryGroup>(
+        getToken,
+        `/api/inventory/groups/${id}`,
+        { method: "PATCH", body: JSON.stringify(data) },
+        orgId
       ),
     deleteInventoryGroup: (id: number) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<void>(`/api/inventory/groups/${id}`, {
-          method: "DELETE",
-        }, orgId, token)
-      ),
+      api.authedFetch<void>(getToken, `/api/inventory/groups/${id}`, { method: "DELETE" }, orgId),
     reorderInventoryGroups: (vesselId: number, groupIds: number[]) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<void>(
-          `/api/vessels/${vesselId}/inventory/groups/reorder`,
-          {
-            method: "PUT",
-            body: JSON.stringify({ group_ids: groupIds }),
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<void>(
+        getToken,
+        `/api/vessels/${vesselId}/inventory/groups/reorder`,
+        { method: "PUT", body: JSON.stringify({ group_ids: groupIds }) },
+        orgId
       ),
     reorderInventoryItems: (
       vesselId: number,
       groupId: number | null,
       itemIds: number[]
     ) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<void>(
-          `/api/vessels/${vesselId}/inventory/items/reorder`,
-          {
-            method: "PUT",
-            body: JSON.stringify({ group_id: groupId, item_ids: itemIds }),
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<void>(
+        getToken,
+        `/api/vessels/${vesselId}/inventory/items/reorder`,
+        { method: "PUT", body: JSON.stringify({ group_id: groupId, item_ids: itemIds }) },
+        orgId
       ),
     listInventoryChecks: (vesselId: number) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.InventoryCheck[]>(
-          `/api/vessels/${vesselId}/inventory/checks`,
-          {},
-          orgId,
-          token
-        )
+      api.authedFetch<api.InventoryCheck[]>(
+        getToken,
+        `/api/vessels/${vesselId}/inventory/checks`,
+        {},
+        orgId
       ),
     getInventoryCheck: (id: number) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.InventoryCheck>(`/api/inventory/checks/${id}`, {}, orgId, token)
-      ),
+      api.authedFetch<api.InventoryCheck>(getToken, `/api/inventory/checks/${id}`, {}, orgId),
     createInventoryCheck: (vesselId: number, data: api.InventoryCheckCreate) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.InventoryCheck>(
-          `/api/vessels/${vesselId}/inventory/checks`,
-          {
-            method: "POST",
-            body: JSON.stringify(data),
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<api.InventoryCheck>(
+        getToken,
+        `/api/vessels/${vesselId}/inventory/checks`,
+        { method: "POST", body: JSON.stringify(data) },
+        orgId
       ),
     updateInventoryCheckLines: (checkId: number, data: api.InventoryCheckLinesBulkUpdate) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.InventoryCheck>(
-          `/api/inventory/checks/${checkId}/lines`,
-          {
-            method: "PUT",
-            body: JSON.stringify(data),
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<api.InventoryCheck>(
+        getToken,
+        `/api/inventory/checks/${checkId}/lines`,
+        { method: "PUT", body: JSON.stringify(data) },
+        orgId
       ),
     submitInventoryCheck: (checkId: number) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.InventoryCheck>(
-          `/api/inventory/checks/${checkId}/submit`,
-          {
-            method: "POST",
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<api.InventoryCheck>(
+        getToken,
+        `/api/inventory/checks/${checkId}/submit`,
+        { method: "POST" },
+        orgId
       ),
     // Maintenance
     listMaintenanceTasks: (vesselId: number) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.MaintenanceTask[]>(
-          `/api/vessels/${vesselId}/maintenance/tasks`,
-          {},
-          orgId,
-          token
-        )
+      api.authedFetch<api.MaintenanceTask[]>(
+        getToken,
+        `/api/vessels/${vesselId}/maintenance/tasks`,
+        {},
+        orgId
       ),
     createMaintenanceTask: (vesselId: number, data: api.MaintenanceTaskCreate) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.MaintenanceTask>(
-          `/api/vessels/${vesselId}/maintenance/tasks`,
-          {
-            method: "POST",
-            body: JSON.stringify(data),
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<api.MaintenanceTask>(
+        getToken,
+        `/api/vessels/${vesselId}/maintenance/tasks`,
+        { method: "POST", body: JSON.stringify(data) },
+        orgId
       ),
     updateMaintenanceTask: (taskId: number, data: api.MaintenanceTaskUpdate) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.MaintenanceTask>(
-          `/api/maintenance/tasks/${taskId}`,
-          {
-            method: "PATCH",
-            body: JSON.stringify(data),
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<api.MaintenanceTask>(
+        getToken,
+        `/api/maintenance/tasks/${taskId}`,
+        { method: "PATCH", body: JSON.stringify(data) },
+        orgId
       ),
     reorderMaintenanceTasks: (vesselId: number, taskIds: number[]) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<void>(
-          `/api/vessels/${vesselId}/maintenance/tasks/reorder`,
-          {
-            method: "PUT",
-            body: JSON.stringify({ task_ids: taskIds }),
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<void>(
+        getToken,
+        `/api/vessels/${vesselId}/maintenance/tasks/reorder`,
+        { method: "PUT", body: JSON.stringify({ task_ids: taskIds }) },
+        orgId
       ),
     createMaintenanceLog: (taskId: number, data: api.MaintenanceLogCreate) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.MaintenanceLog>(
-          `/api/maintenance/tasks/${taskId}/logs`,
-          {
-            method: "POST",
-            body: JSON.stringify(data),
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<api.MaintenanceLog>(
+        getToken,
+        `/api/maintenance/tasks/${taskId}/logs`,
+        { method: "POST", body: JSON.stringify(data) },
+        orgId
       ),
     listMaintenanceLogs: (taskId: number) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.MaintenanceLog[]>(
-          `/api/maintenance/tasks/${taskId}/logs`,
-          {},
-          orgId,
-          token
-        )
+      api.authedFetch<api.MaintenanceLog[]>(
+        getToken,
+        `/api/maintenance/tasks/${taskId}/logs`,
+        {},
+        orgId
       ),
     // Trips
     getVesselTotalHours: (vesselId: number) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.VesselTotalHours>(
-          `/api/vessels/${vesselId}/total-hours`,
-          {},
-          orgId,
-          token
-        )
+      api.authedFetch<api.VesselTotalHours>(
+        getToken,
+        `/api/vessels/${vesselId}/total-hours`,
+        {},
+        orgId
       ),
     listTrips: (vesselId: number, limit?: number) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.Trip[]>(
-          `/api/vessels/${vesselId}/trips${limit != null ? `?limit=${limit}` : ""}`,
-          {},
-          orgId,
-          token
-        )
+      api.authedFetch<api.Trip[]>(
+        getToken,
+        `/api/vessels/${vesselId}/trips${limit != null ? `?limit=${limit}` : ""}`,
+        {},
+        orgId
       ),
     createTrip: (vesselId: number, data: api.TripCreate) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.Trip>(
-          `/api/vessels/${vesselId}/trips`,
-          {
-            method: "POST",
-            body: JSON.stringify(data),
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<api.Trip>(
+        getToken,
+        `/api/vessels/${vesselId}/trips`,
+        { method: "POST", body: JSON.stringify(data) },
+        orgId
       ),
     updateTrip: (vesselId: number, tripId: string, data: api.TripUpdate) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.Trip>(
-          `/api/vessels/${vesselId}/trips/${tripId}`,
-          {
-            method: "PATCH",
-            body: JSON.stringify(data),
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<api.Trip>(
+        getToken,
+        `/api/vessels/${vesselId}/trips/${tripId}`,
+        { method: "PATCH", body: JSON.stringify(data) },
+        orgId
       ),
     deleteTrip: (vesselId: number, tripId: string) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<void>(
-          `/api/vessels/${vesselId}/trips/${tripId}`,
-          { method: "DELETE" },
-          orgId,
-          token
-        )
+      api.authedFetch<void>(
+        getToken,
+        `/api/vessels/${vesselId}/trips/${tripId}`,
+        { method: "DELETE" },
+        orgId
       ),
     // Comments
     listVesselComments: (vesselId: number) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.VesselComment[]>(
-          `/api/vessels/${vesselId}/comments`,
-          {},
-          orgId,
-          token
-        )
+      api.authedFetch<api.VesselComment[]>(
+        getToken,
+        `/api/vessels/${vesselId}/comments`,
+        {},
+        orgId
       ),
     createVesselComment: (vesselId: number, data: api.VesselCommentCreate) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<api.VesselComment>(
-          `/api/vessels/${vesselId}/comments`,
-          {
-            method: "POST",
-            body: JSON.stringify(data),
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<api.VesselComment>(
+        getToken,
+        `/api/vessels/${vesselId}/comments`,
+        { method: "POST", body: JSON.stringify(data) },
+        orgId
       ),
     // Orgs (no orgId needed for these)
     createOrg: (data: { name: string; force?: boolean }) =>
-      withAuth((token) =>
-        api.apiRequest<api.Organization>("/api/orgs", {
-          method: "POST",
-          body: JSON.stringify(data),
-        }, null, token)
-      ),
+      api.authedFetch<api.Organization>(getToken, "/api/orgs", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }, null),
     listOrgs: () =>
-      withAuth((token) =>
-        api.apiRequest<api.Organization[]>("/api/orgs", {}, null, token)
-      ),
+      api.authedFetch<api.Organization[]>(getToken, "/api/orgs", {}, null),
     getMe: () =>
-      withAuth((token) =>
-        api.apiRequest<api.Me>("/api/me", {}, null, token)
-      ),
+      api.authedFetch<api.Me>(getToken, "/api/me", {}, null),
     listOrgMembers: (orgId: number) =>
-      withAuth((token) =>
-        api.apiRequest<api.OrgMembership[]>(`/api/orgs/${orgId}/members`, {}, orgId, token)
-      ),
+      api.authedFetch<api.OrgMembership[]>(getToken, `/api/orgs/${orgId}/members`, {}, orgId),
     createOrgInvite: (orgId: number, data: api.OrgInviteCreate) =>
-      withAuth((token) =>
-        api.apiRequest<api.OrgInvite>(`/api/orgs/${orgId}/invites`, {
-          method: "POST",
-          body: JSON.stringify(data),
-        }, orgId, token)
-      ),
+      api.authedFetch<api.OrgInvite>(getToken, `/api/orgs/${orgId}/invites`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }, orgId),
     acceptInvite: (data: api.OrgInviteAccept) =>
-      withAuth((token) =>
-        api.apiRequest<api.OrgMembership>("/api/orgs/invites/accept", {
-          method: "POST",
-          body: JSON.stringify(data),
-        }, null, token)
-      ),
+      api.authedFetch<api.OrgMembership>(getToken, "/api/orgs/invites/accept", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }, null),
     updateMemberRole: (orgId: number, userId: number, data: api.MemberRoleUpdate) =>
-      withAuth((token) =>
-        api.apiRequest<api.OrgMembership>(
-          `/api/orgs/${orgId}/members/${userId}/role`,
-          {
-            method: "POST",
-            body: JSON.stringify(data),
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<api.OrgMembership>(
+        getToken,
+        `/api/orgs/${orgId}/members/${userId}/role`,
+        { method: "POST", body: JSON.stringify(data) },
+        orgId
       ),
     disableMember: (orgId: number, userId: number) =>
-      withAuth((token) =>
-        api.apiRequest<api.OrgMembership>(
-          `/api/orgs/${orgId}/members/${userId}/disable`,
-          {
-            method: "POST",
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<api.OrgMembership>(
+        getToken,
+        `/api/orgs/${orgId}/members/${userId}/disable`,
+        { method: "POST" },
+        orgId
       ),
     // Organization Requests
     createOrgRequest: (data: { org_name: string }) =>
-      withAuth((token) =>
-        api.apiRequest<api.OrganizationRequest>("/api/orgs/requests", {
-          method: "POST",
-          body: JSON.stringify(data),
-        }, null, token)
-      ),
+      api.authedFetch<api.OrganizationRequest>(getToken, "/api/orgs/requests", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }, null),
     listOrgRequests: () =>
-      withAuth((token) =>
-        api.apiRequest<api.OrganizationRequest[]>("/api/orgs/requests", {}, null, token)
-      ),
+      api.authedFetch<api.OrganizationRequest[]>(getToken, "/api/orgs/requests", {}, null),
     reviewOrgRequest: (requestId: number, data: { status: string; review_notes?: string }) =>
-      withAuth((token) =>
-        api.apiRequest<api.OrganizationRequest>(
-          `/api/orgs/requests/${requestId}/review`,
-          {
-            method: "POST",
-            body: JSON.stringify(data),
-          },
-          null,
-          token
-        )
+      api.authedFetch<api.OrganizationRequest>(
+        getToken,
+        `/api/orgs/requests/${requestId}/review`,
+        { method: "POST", body: JSON.stringify(data) },
+        null
       ),
     // Import
-    importVessels: (file: File) =>
-      withAuth((token, orgId) =>
-        api.importVessels(file, orgId, token)
-      ),
-    importInventoryRequirements: (vesselId: number, file: File) =>
-      withAuth((token, orgId) =>
-        api.importInventoryRequirements(vesselId, file, orgId, token)
-      ),
-    importMaintenanceTasks: (vesselId: number, file: File) =>
-      withAuth((token, orgId) =>
-        api.importMaintenanceTasks(vesselId, file, orgId, token)
-      ),
+    importVessels: (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return api.authedFetch<api.ImportResult>(
+        getToken,
+        "/api/import/vessels",
+        { method: "POST", body: formData },
+        orgId
+      );
+    },
+    importInventoryRequirements: (vesselId: number, file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return api.authedFetch<api.ImportResult>(
+        getToken,
+        `/api/import/vessels/${vesselId}/inventory-requirements`,
+        { method: "POST", body: formData },
+        orgId
+      );
+    },
+    importMaintenanceTasks: (vesselId: number, file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return api.authedFetch<api.ImportResult>(
+        getToken,
+        `/api/import/vessels/${vesselId}/maintenance-tasks`,
+        { method: "POST", body: formData },
+        orgId
+      );
+    },
     // Super Admin endpoints
     listAllOrgs: () =>
-      withAuth((token) =>
-        api.apiRequest<api.Organization[]>("/api/admin/orgs", {}, null, token)
-      ),
+      api.authedFetch<api.Organization[]>(getToken, "/api/admin/orgs", {}, null),
     toggleOrgStatus: (orgId: number) =>
-      withAuth((token) =>
-        api.apiRequest<api.Organization>(
-          `/api/admin/orgs/${orgId}/toggle-status`,
-          {
-            method: "POST",
-          },
-          null,
-          token
-        )
+      api.authedFetch<api.Organization>(
+        getToken,
+        `/api/admin/orgs/${orgId}/toggle-status`,
+        { method: "POST" },
+        null
       ),
     listAllUsers: () =>
-      withAuth((token) =>
-        api.apiRequest<api.User[]>("/api/admin/users", {}, null, token)
-      ),
+      api.authedFetch<api.User[]>(getToken, "/api/admin/users", {}, null),
     listAllOrgRequests: () =>
-      withAuth((token) =>
-        api.apiRequest<api.OrganizationRequest[]>("/api/admin/orgs/requests", {}, null, token)
-      ),
+      api.authedFetch<api.OrganizationRequest[]>(getToken, "/api/admin/orgs/requests", {}, null),
     reviewOrgRequestSuperAdmin: (requestId: number, data: { status: string; review_notes?: string }) =>
-      withAuth((token) =>
-        api.apiRequest<api.OrganizationRequest>(
-          `/api/admin/orgs/requests/${requestId}/review`,
-          {
-            method: "POST",
-            body: JSON.stringify(data),
-          },
-          null,
-          token
-        )
+      api.authedFetch<api.OrganizationRequest>(
+        getToken,
+        `/api/admin/orgs/requests/${requestId}/review`,
+        { method: "POST", body: JSON.stringify(data) },
+        null
       ),
     // Internal super admin endpoints
     searchOrgs: (query?: string) =>
-      withAuth((token) =>
-        api.apiRequest<api.Organization[]>(
-          `/api/internal/orgs${query ? `?query=${encodeURIComponent(query)}` : ""}`,
-          {},
-          null,
-          token
-        )
+      api.authedFetch<api.Organization[]>(
+        getToken,
+        `/api/internal/orgs${query ? `?query=${encodeURIComponent(query)}` : ""}`,
+        {},
+        null
       ),
     updateBillingOverride: (orgId: number, data: {
       billing_override_enabled?: boolean;
@@ -497,77 +342,52 @@ export function useApi() {
       billing_override_expires_at?: string | null;
       billing_override_reason?: string | null;
     }) =>
-      withAuth((token) =>
-        api.apiRequest<api.Organization>(
-          `/api/internal/orgs/${orgId}/billing-override`,
-          {
-            method: "PATCH",
-            body: JSON.stringify(data),
-          },
-          null,
-          token
-        )
+      api.authedFetch<api.Organization>(
+        getToken,
+        `/api/internal/orgs/${orgId}/billing-override`,
+        { method: "PATCH", body: JSON.stringify(data) },
+        null
       ),
     // Org admin billing endpoint
     getOrgBilling: (orgId: number) =>
-      withAuth((token, currentOrgId) =>
-        api.apiRequest<{
-          org_id: number;
-          org_name: string;
-          subscription_plan: string | null;
-          subscription_status: string | null;
-          vessel_usage: { current: number; limit: number | null };
-          billing_override: { active: boolean; expires_at: string | null };
-          effective_entitlement: { is_active: boolean; vessel_limit: number | null };
-        }>(`/api/orgs/${orgId}/billing`, {}, currentOrgId, token)
-      ),
+      api.authedFetch<{
+        org_id: number;
+        org_name: string;
+        subscription_plan: string | null;
+        subscription_status: string | null;
+        vessel_usage: { current: number; limit: number | null };
+        billing_override: { active: boolean; expires_at: string | null };
+        effective_entitlement: { is_active: boolean; vessel_limit: number | null };
+      }>(getToken, `/api/orgs/${orgId}/billing`, {}, orgId),
     // Billing endpoints
     getBillingStatus: () =>
-      withAuth((token, orgId) =>
-        api.apiRequest<{
-          org_id: number;
-          org_name: string;
-          plan: string | null;
-          status: string | null;
-          current_period_end: string | null;
-          addon_pack_quantity: number;
-          base_vessels_included: number;
-          vessels_per_pack: number;
-          vessel_limit: number | null;
-          effective_vessel_limit: number | null;
-          vessel_usage: { current: number; limit: number | null };
-          billing_override: { active: boolean; expires_at: string | null };
-        }>("/api/billing/status", {}, orgId, token)
-      ),
+      api.authedFetch<{
+        org_id: number;
+        org_name: string;
+        plan: string | null;
+        status: string | null;
+        current_period_end: string | null;
+        addon_pack_quantity: number;
+        base_vessels_included: number;
+        vessels_per_pack: number;
+        vessel_limit: number | null;
+        effective_vessel_limit: number | null;
+        vessel_usage: { current: number; limit: number | null };
+        billing_override: { active: boolean; expires_at: string | null };
+      }>(getToken, "/api/billing/status", {}, orgId),
     createCheckoutSession: (pack_quantity: number) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<{ url: string }>("/api/billing/checkout-session", {
-          method: "POST",
-          body: JSON.stringify({ pack_quantity }),
-        }, orgId, token)
-      ),
+      api.authedFetch<{ url: string }>(getToken, "/api/billing/checkout-session", {
+        method: "POST",
+        body: JSON.stringify({ pack_quantity }),
+      }, orgId),
     updateVesselPacks: (pack_quantity: number) =>
-      withAuth((token, orgId) =>
-        api.apiRequest<{ status: string; pack_quantity: number }>(
-          "/api/billing/update-vessel-packs",
-          {
-            method: "POST",
-            body: JSON.stringify({ pack_quantity }),
-          },
-          orgId,
-          token
-        )
+      api.authedFetch<{ status: string; pack_quantity: number }>(
+        getToken,
+        "/api/billing/update-vessel-packs",
+        { method: "POST", body: JSON.stringify({ pack_quantity }) },
+        orgId
       ),
     createPortalSession: () =>
-      withAuth((token, orgId) =>
-        api.apiRequest<{ url: string }>(
-          "/api/billing/portal",
-          {
-            method: "POST",
-          },
-          orgId,
-          token
-        )
-      ),
+      api.authedFetch<{ url: string }>(getToken, "/api/billing/portal", { method: "POST" }, orgId),
   };
 }

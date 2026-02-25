@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 import { useRouter, useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useApi } from "@/hooks/use-api";
@@ -10,24 +10,36 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 
 export default function OrgBillingPage() {
-  const { isSignedIn } = useUser();
+  const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
   const params = useParams();
   const api = useApi();
   const orgId = params?.orgId ? parseInt(params.orgId as string) : null;
 
   const { data: me, isLoading: meLoading } = useQuery({
-    queryKey: ["me"],
+    queryKey: ["me", isLoaded, isSignedIn],
     queryFn: () => api.getMe(),
-    enabled: isSignedIn === true,
+    enabled: isLoaded === true && isSignedIn === true,
     retry: 1,
   });
 
   const { data: billing, isLoading: billingLoading } = useQuery({
-    queryKey: ["org-billing", orgId],
+    queryKey: ["org-billing", orgId, isLoaded, isSignedIn],
     queryFn: () => api.getOrgBilling(orgId!),
-    enabled: isSignedIn === true && orgId !== null,
+    enabled: isLoaded === true && isSignedIn === true && orgId !== null,
   });
+
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <p className="text-center">Loading...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!isSignedIn) {
     router.push("/");
