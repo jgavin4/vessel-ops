@@ -18,6 +18,9 @@ export function ClerkAuthDebug() {
   useEffect(() => {
     if (!mounted || typeof window === "undefined") return;
 
+    const hasKey = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+    console.log("[Clerk Auth] NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY defined at runtime:", hasKey);
+
     const params = new URLSearchParams(window.location.search);
     const showDebugPanel = params.get("debug") === "1";
     const entries: Record<string, string> = {};
