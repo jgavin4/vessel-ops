@@ -81,7 +81,7 @@ export CLERK_SECRET_KEY="your_clerk_secret_key"  # Optional for dev
 export CLERK_JWKS_URL="https://your-clerk-instance.clerk.accounts.dev/.well-known/jwks.json"  # Optional for dev
 export RESEND_API_KEY="your_resend_api_key"  # Optional for dev
 export FROM_EMAIL="noreply@yourdomain.com"  # Optional for dev
-export FRONTEND_URL="http://localhost:3000"
+export WEB_BASE_URL="http://localhost:3000"
 
 # Run the API server
 uvicorn app.main:app --reload --port 8000
@@ -124,7 +124,7 @@ CLERK_SECRET_KEY=sk_test_...  # Optional: for JWT verification
 CLERK_JWKS_URL=https://...clerk.accounts.dev/.well-known/jwks.json  # Optional
 RESEND_API_KEY=re_...  # Optional: for sending invite emails
 FROM_EMAIL=noreply@yourdomain.com  # Optional: email sender
-FRONTEND_URL=http://localhost:3000  # For invite email links
+WEB_BASE_URL=http://localhost:3000  # Invite links, billing redirects
 ```
 
 ### Frontend (`apps/web/.env.local`)
@@ -249,8 +249,7 @@ NEXT_PUBLIC_API_BASE_URL=  # Leave empty to use Next.js rewrites (/api/*)
    RESEND_API_KEY=re_...
    FROM_EMAIL=noreply@dock-ops.com
    
-   # Frontend URLs
-   FRONTEND_URL=https://dock-ops.com
+   # Web app base URL (invite links, billing redirects)
    WEB_BASE_URL=https://dock-ops.com
    
    # Stripe (required for billing)

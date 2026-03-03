@@ -74,7 +74,7 @@ def create_checkout_session(
         line_items.append({"price": pack_price_id, "quantity": pack_quantity})
 
     customer_id = get_or_create_stripe_customer(org, db)
-    web_base_url = os.getenv("WEB_BASE_URL", os.getenv("FRONTEND_URL", "http://localhost:3000"))
+    web_base_url = os.getenv("WEB_BASE_URL", "http://localhost:3000")
 
     try:
         checkout_session = stripe.checkout.Session.create(
@@ -181,7 +181,7 @@ def create_portal_session(
         )
     
     # Get web base URL
-    web_base_url = os.getenv("WEB_BASE_URL", os.getenv("FRONTEND_URL", "http://localhost:3000"))
+    web_base_url = os.getenv("WEB_BASE_URL", "http://localhost:3000")
     
     # Create portal session
     try:

@@ -29,7 +29,7 @@ def send_invite_email(email: str, token: str, org_name: str):
     """Send invite email via Resend."""
     resend_api_key = os.getenv("RESEND_API_KEY")
     from_email = os.getenv("FROM_EMAIL", "noreply@dock-ops.com")
-    base_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    base_url = os.getenv("WEB_BASE_URL", os.getenv("FRONTEND_URL", "http://localhost:3000"))
     
     if not resend_api_key:
         # In development, just log

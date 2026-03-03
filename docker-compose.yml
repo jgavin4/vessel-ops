@@ -34,7 +34,7 @@ services:
       # Note: If CLERK_JWKS_URL is not set, the API will auto-detect it from the token issuer
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       FROM_EMAIL: ${FROM_EMAIL:-noreply@dock-ops.com}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      WEB_BASE_URL: ${WEB_BASE_URL:-http://localhost:3000}
       CORS_ORIGINS: http://localhost:3000,http://web:3000
     depends_on:
       db:
