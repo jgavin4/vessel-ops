@@ -140,9 +140,9 @@ def create_org_request(
 ) -> OrganizationRequest:
     """Request to create a new organization (requires admin approval).
     
-    Super admins can bypass restrictions and create multiple requests.
+    Users may have multiple organizations (each with its own billing). Non-super-admins
+    may only have one pending request at a time. Super admins can create without approval.
     """
-    # Super admins can bypass restrictions
     if not user.is_super_admin:
         # Check if user already has a pending request
         existing_request = (
@@ -159,23 +159,6 @@ def create_org_request(
             raise HTTPException(
                 status_code=400,
                 detail="You already have a pending organization request"
-            )
-        
-        # Check if user already has an active organization
-        existing_membership = (
-            db.execute(
-                select(OrgMembership).where(
-                    OrgMembership.user_id == user.id,
-                    OrgMembership.status == MembershipStatus.ACTIVE
-                )
-            )
-            .scalars()
-            .first()
-        )
-        if existing_membership:
-            raise HTTPException(
-                status_code=400,
-                detail="You are already a member of an organization"
             )
     
     # Create request
