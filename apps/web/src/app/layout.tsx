@@ -25,7 +25,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <ClerkProvider publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}>
+        <ClerkProvider
+          publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+          signInUrl="/sign-in"
+          signUpUrl="/sign-up"
+          afterSignInUrl="/"
+          afterSignUpUrl="/"
+        >
           <Providers>
             <Header />
             <main className="container mx-auto px-4 py-8">{children}</main>
