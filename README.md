@@ -367,8 +367,9 @@ If your domain is managed by Squarespace, you'll need to add DNS records:
 **Google SSO not working (production)**:
 - **Clerk Dashboard** (production instance): User & Authentication → SSO → Google → enable **Use custom credentials** and paste Google OAuth Client ID and Secret.
 - **Google Cloud Console**: In your OAuth 2.0 client, add the **exact** Authorized Redirect URI from Clerk, and add your site to Authorized JavaScript origins (e.g. `https://dock-ops.com`, `https://www.dock-ops.com`).
-- **Clerk custom domain**: If you use a custom Clerk domain (e.g. `clerk.dock-ops.com`), ensure it’s set in Clerk Dashboard → Domains. In `apps/web/src/app/layout.tsx`, remove `domain={undefined}` once SSL is working so Clerk uses your domain for OAuth redirects.
+- **Clerk custom domain**: If you use a custom Clerk domain (e.g. `clerk.dock-ops.com`), ensure it’s set in Clerk Dashboard → Domains.
 - **Google app status**: If the OAuth app is in “Testing”, only up to 100 test users can sign in; switch to “In production” for all users.
+- **Where Clerk logs live**: In [Clerk Dashboard](https://dashboard.clerk.com) go to **Logs** (or **Developer** → **Logs**). Filter by Error to see failed sign-in/OAuth requests. After an SSO failure you can also add `?debug=1` to the sign-in or sign-up URL (e.g. `https://dock-ops.com/sign-in?debug=1`), try Google again, and the page will show any error params Clerk returned in the redirect.
 
 ## API Endpoints
 
