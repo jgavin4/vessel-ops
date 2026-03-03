@@ -334,6 +334,8 @@ If your domain is managed by Squarespace, you'll need to add DNS records:
 - [ ] Stripe checkout flow works: Test subscription purchase
 - [ ] Billing enforcement works: Verify vessel limits are enforced
 - [ ] CORS configured: No CORS errors in browser console
+- [ ] Invite emails: Set `RESEND_API_KEY` and `FROM_EMAIL` on API; verify domain at [resend.com/domains](https://resend.com/domains)
+- [ ] Google SSO: Clerk production instance → custom Google credentials; Google Cloud redirect URI and JS origins match
 
 ### Troubleshooting
 
@@ -356,6 +358,17 @@ If your domain is managed by Squarespace, you'll need to add DNS records:
 - Check Railway deployment logs for `alembic upgrade head`
 - Verify `entrypoint.sh` is executable and copied correctly
 - Manually run migrations if needed: Railway → API service → Connect → `alembic upgrade head`
+
+**Invite emails not sending (production)**:
+- **API env (Railway)**: Set `RESEND_API_KEY` (from [Resend](https://resend.com)) and `FROM_EMAIL` (e.g. `noreply@dock-ops.com`). Set `WEB_BASE_URL` to your app URL (e.g. `https://dock-ops.com`) so invite links are correct.
+- **Resend**: Add and verify the domain used in `FROM_EMAIL` at [resend.com/domains](https://resend.com/domains). Unverified domains cannot send to external recipients.
+- Check API logs for `RESEND_API_KEY not set` or `Failed to send invite email`; the exception message will indicate Resend errors (e.g. domain not verified).
+
+**Google SSO not working (production)**:
+- **Clerk Dashboard** (production instance): User & Authentication → SSO → Google → enable **Use custom credentials** and paste Google OAuth Client ID and Secret.
+- **Google Cloud Console**: In your OAuth 2.0 client, add the **exact** Authorized Redirect URI from Clerk, and add your site to Authorized JavaScript origins (e.g. `https://dock-ops.com`, `https://www.dock-ops.com`).
+- **Clerk custom domain**: If you use a custom Clerk domain (e.g. `clerk.dock-ops.com`), ensure it’s set in Clerk Dashboard → Domains. In `apps/web/src/app/layout.tsx`, remove `domain={undefined}` once SSL is working so Clerk uses your domain for OAuth redirects.
+- **Google app status**: If the OAuth app is in “Testing”, only up to 100 test users can sign in; switch to “In production” for all users.
 
 ## API Endpoints
 

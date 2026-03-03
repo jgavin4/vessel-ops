@@ -1,8 +1,11 @@
 """Organization and membership management endpoints."""
+import logging
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Path, Query
 from sqlalchemy import select, or_
@@ -26,21 +29,24 @@ router = APIRouter(tags=["organizations"])
 
 
 def send_invite_email(email: str, token: str, org_name: str):
-    """Send invite email via Resend."""
+    """Send invite email via Resend. Requires RESEND_API_KEY and verified FROM_EMAIL domain in production."""
     resend_api_key = os.getenv("RESEND_API_KEY")
     from_email = os.getenv("FROM_EMAIL", "noreply@dock-ops.com")
     base_url = os.getenv("WEB_BASE_URL", os.getenv("FRONTEND_URL", "http://localhost:3000"))
-    
+    invite_url = f"{base_url}/invite/{token}"
+
     if not resend_api_key:
-        # In development, just log
-        print(f"[DEV] Invite email to {email}: {base_url}/invite/{token}")
+        logger.warning(
+            "RESEND_API_KEY not set: invite email not sent. "
+            "Set RESEND_API_KEY and verify FROM_EMAIL domain at resend.com/domains for production. "
+            "Invite link: %s",
+            invite_url,
+        )
         return
-    
+
     try:
         import resend
         resend.api_key = resend_api_key
-        
-        invite_url = f"{base_url}/invite/{token}"
         resend.Emails.send({
             "from": from_email,
             "to": email,
@@ -52,9 +58,9 @@ def send_invite_email(email: str, token: str, org_name: str):
             <p>This invitation will expire in 7 days.</p>
             """
         })
+        logger.info("Invite email sent to %s for org %s", email, org_name)
     except Exception as e:
-        print(f"Failed to send invite email: {e}")
-        # Don't fail the request if email fails
+        logger.exception("Failed to send invite email to %s: %s. Check RESEND_API_KEY and that FROM_EMAIL domain is verified at resend.com/domains.", email, e)
 
 
 @router.post("/api/orgs", response_model=OrganizationOut, status_code=201)

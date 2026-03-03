@@ -23,11 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider
-      // Force Clerk to use default domain if custom domain SSL is misconfigured
-      // Remove this prop once custom domain SSL is properly configured
-      domain={undefined}
-    >
+    <ClerkProvider>
       <html lang="en">
         <body className={inter.className}>
           <Providers>
