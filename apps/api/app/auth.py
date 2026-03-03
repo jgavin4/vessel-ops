@@ -15,9 +15,43 @@ from app.models import User, OrgMembership, MembershipStatus, OrgRole
 # Clerk JWT verification
 CLERK_JWKS_URL = os.getenv("CLERK_JWKS_URL", "")
 CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY", "")
+# When True, allow unverified JWTs if JWKS cannot be used (dev only). Never set in production.
+ALLOW_UNVERIFIED_JWT = os.getenv("ALLOW_UNVERIFIED_JWT", "").lower() in ("1", "true", "yes")
 
 # Cache for JWKS
 _jwks_cache = None
+
+
+def fetch_clerk_user_by_id(user_id: str) -> Optional[dict]:
+    """Fetch user email/name from Clerk Backend API when not present in JWT.
+    Returns dict with 'email' and 'name' keys, or None on failure.
+    """
+    if not CLERK_SECRET_KEY or not user_id:
+        return None
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        response = httpx.get(
+            f"https://api.clerk.com/v1/users/{user_id}",
+            headers={"Authorization": f"Bearer {CLERK_SECRET_KEY}"},
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        data = response.json()
+        email = None
+        if data.get("primary_email_address_id"):
+            for e in data.get("email_addresses", []):
+                if e.get("id") == data["primary_email_address_id"]:
+                    email = e.get("email_address")
+                    break
+        if not email and data.get("email_addresses"):
+            email = data["email_addresses"][0].get("email_address")
+        name = f"{data.get('first_name', '')} {data.get('last_name', '')}".strip() or None
+        logger.info(f"Clerk API user {user_id}: email={email}, name={name}")
+        return {"email": email or "", "name": name}
+    except Exception as e:
+        logger.warning(f"Failed to fetch Clerk user {user_id}: {e}")
+        return None
 
 
 def get_clerk_jwks(jwks_url: Optional[str] = None):
@@ -118,15 +152,10 @@ def verify_clerk_token(token: str) -> Optional[dict]:
                     logger.info("Token verified successfully with configured JWKS")
                     return payload
         
-        # If no valid JWKS URL but we have a Clerk instance, try to construct it
-        # Clerk JWKS URLs follow pattern: https://<instance>.clerk.accounts.dev/.well-known/jwks.json
-        # This auto-detection runs if:
-        # 1. No JWKS URL configured, OR
-        # 2. JWKS URL is placeholder, OR  
-        # 3. JWKS URL failed to fetch
-        if issuer and "clerk.accounts.dev" in issuer:
-            # Extract instance from issuer (e.g., "https://valid-starfish-96.clerk.accounts.dev")
-            jwks_url = f"{issuer}/.well-known/jwks.json"
+        # If no valid JWKS URL but we have an issuer, try {issuer}/.well-known/jwks.json
+        # Works for both cloud (clerk.accounts.dev) and custom domains (e.g. clerk.dock-ops.com)
+        if issuer and issuer.startswith("https://"):
+            jwks_url = f"{issuer.rstrip('/')}/.well-known/jwks.json"
             logger.info(f"Auto-detecting JWKS URL: {jwks_url}")
             global _jwks_cache
             _jwks_cache = None  # Clear cache to fetch new URL
@@ -182,16 +211,20 @@ def verify_clerk_token(token: str) -> Optional[dict]:
                 logger.error(f"JWKS verification error: {str(e)}")
                 raise HTTPException(status_code=401, detail=f"Failed to verify token: {str(e)}")
         
-        # Fallback: if we have secret key but no JWKS, skip verification in dev mode
-        if CLERK_SECRET_KEY:
-            logger.warning("No JWKS URL found, skipping signature verification (DEV MODE ONLY)")
-            # In development, allow unverified tokens if we can't get JWKS
-            # This is NOT secure for production!
+        # Fallback: skip verification only when explicitly allowed (local dev). Never in production.
+        if CLERK_SECRET_KEY and ALLOW_UNVERIFIED_JWT:
+            logger.warning("No JWKS URL found, skipping signature verification (ALLOW_UNVERIFIED_JWT=1)")
             payload = jwt.decode(token, options={"verify_signature": False})
             return payload
         
-        logger.error("Unable to verify token - no JWKS URL or secret key")
-        raise HTTPException(status_code=401, detail="Unable to verify token - no JWKS URL or secret key")
+        logger.error(
+            "Unable to verify token - no JWKS URL or verification failed. "
+            "Set CLERK_JWKS_URL or ensure issuer JWKS is reachable (e.g. https://clerk.dock-ops.com/.well-known/jwks.json)."
+        )
+        raise HTTPException(
+            status_code=401,
+            detail="Unable to verify token. Configure CLERK_JWKS_URL or ensure your Clerk issuer exposes /.well-known/jwks.json",
+        )
     except jwt.ExpiredSignatureError:
         logger.warning("Token expired")
         raise HTTPException(status_code=401, detail="Token expired")
@@ -304,9 +337,16 @@ def get_user_from_token(
         logger.warning(f"Token missing subject. Payload keys: {list(payload.keys())}")
         raise HTTPException(status_code=401, detail="Token missing subject")
     
-    if not email:
-        logger.warning(f"Token missing email. Payload: {payload}")
-        # Don't fail - we can create user without email and update it later
+    if not email or not name:
+        # Clerk session tokens often omit email/name; fetch from Backend API
+        clerk_user = fetch_clerk_user_by_id(auth_subject)
+        if clerk_user:
+            if not email:
+                email = clerk_user.get("email") or ""
+            if not name:
+                name = clerk_user.get("name")
+        if not email:
+            logger.warning(f"Token missing email and API fetch had none. Payload: {payload}")
     
     logger.info(f"Successfully authenticated user: {email or 'no email'} (sub: {auth_subject})")
     return get_or_create_user(db, auth_subject, email or f"user_{auth_subject}@clerk.local", name)
